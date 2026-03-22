@@ -153,7 +153,7 @@ class VideoDownloader:
         # Parse basic info
         video_info = VideoInfo(
             title=info.get("title", "Unknown"),
-            duration=info.get("duration"),
+            duration=int(info.get("duration") or 0),  # Convert float to int
             thumbnail=info.get("thumbnail"),
             uploader=info.get("uploader"),
             view_count=info.get("view_count"),
@@ -176,10 +176,10 @@ class VideoDownloader:
             seen_resolutions.add(resolution)
             
             format_info = FormatInfo(
-                format_id=fmt.get("format_id", ""),
+                format_id=str(fmt.get("format_id", "")),
                 ext=fmt.get("ext", ""),
                 resolution=resolution,
-                fps=fmt.get("fps"),
+                fps=int(fmt.get("fps") or 0),  # Convert float to int
                 vcodec=fmt.get("vcodec"),
                 acodec=fmt.get("acodec"),
                 filesize=fmt.get("filesize"),
