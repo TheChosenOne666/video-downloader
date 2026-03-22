@@ -12,6 +12,13 @@ class ApiError extends Error {
   }
 }
 
+// Proxy image URL to bypass referer restrictions
+export function getProxiedImageUrl(originalUrl: string): string {
+  if (!originalUrl) return '';
+  // Use backend proxy to load images
+  return `${API_BASE}/proxy/image?url=${encodeURIComponent(originalUrl)}`;
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
@@ -26,7 +33,8 @@ export async function getVideoInfo(urls: string[]): Promise<VideoInfo[]> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ urls }),
   });
-  return handleResponse<VideoInfo[]>(response);
+  const data = await handleResponse<{ infos: VideoInfo[] }>(response);
+  return data.infos;
 }
 
 export async function startDownload(urls: string[], format?: string): Promise<DownloadResponse> {

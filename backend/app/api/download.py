@@ -2,9 +2,11 @@
 
 import logging
 from pathlib import Path
+from urllib.parse import urlparse
 
+import httpx
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.models.schemas import (
     DownloadRequest,
@@ -35,15 +37,35 @@ router = APIRouter(prefix="/api", tags=["download"])
 )
 async def get_video_info(request: VideoInfoRequest) -> VideoInfoResponse:
     """Get video information without downloading."""
-    try:
-        info = await downloader.get_video_info(request.url)
-        return VideoInfoResponse(info=info)
-    except Exception as e:
-        logger.error(f"Failed to get video info: {e}")
+    infos = []
+    errors = []
+    
+    for url in request.urls:
+        try:
+            info = await downloader.get_video_info(url)
+            infos.append(info)
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Failed to get video info for {url}: {e}")
+            
+            # Provide user-friendly error messages
+            if "cookies" in error_msg.lower() or "login" in error_msg.lower():
+                errors.append(f"该视频平台需要登录才能访问，请尝试其他平台（如 YouTube、B站）")
+            elif "unavailable" in error_msg.lower() or "not found" in error_msg.lower():
+                errors.append(f"视频不存在或已被删除")
+            elif "unsupported" in error_msg.lower():
+                errors.append(f"暂不支持该视频平台")
+            else:
+                errors.append(f"无法解析视频链接，请检查链接是否正确")
+    
+    if not infos:
+        error_detail = errors[0] if errors else "无法解析视频链接"
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to extract video info: {str(e)}",
+            detail=error_detail,
         )
+    
+    return VideoInfoResponse(infos=infos)
 
 
 @router.post(
@@ -145,4 +167,64 @@ async def delete_task(task_id: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Task not found: {task_id}",
+        )
+
+
+@router.get(
+    "/proxy/image",
+    summary="Proxy (图片代理)",
+    description="Proxy image requests to bypass referer restrictions (防盗链绕过).",
+)
+async def proxy_image(url: str):
+    """Proxy image requests to bypass referer restrictions."""
+    try:
+        # Determine appropriate referer based on URL
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc.lower()
+        
+        # Platform-specific referer headers
+        referer_map = {
+            "bilibili.com": "https://www.bilibili.com/",
+            "youtube.com": "https://www.youtube.com/",
+            "youtu.be": "https://www.youtube.com/",
+            "douyin.com": "https://www.douyin.com/",
+            "tiktok.com": "https://www.tiktok.com/",
+            "ixigua.com": "https://www.ixigua.com/",
+            "kuaishou.com": "https://www.kuaishou.com/",
+        }
+        
+        # Find matching referer
+        referer = "https://www.google.com/"  # Default fallback
+        for platform, platform_referer in referer_map.items():
+            if platform in domain:
+                referer = platform_referer
+                break
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Referer": referer,
+            "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        }
+        
+        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            
+            # Determine content type
+            content_type = response.headers.get("content-type", "image/jpeg")
+            
+            return StreamingResponse(
+                content=response.aiter_bytes(),
+                media_type=content_type,
+                headers={
+                    "Cache-Control": "public, max-age=3600",
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
+    except Exception as e:
+        logger.error(f"Failed to proxy image {url}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to load image: {str(e)}",
         )

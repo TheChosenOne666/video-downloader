@@ -91,13 +91,13 @@ class TaskStatusResponse(BaseModel):
 class VideoInfoRequest(BaseModel):
     """Request to get video information."""
     
-    url: str = Field(..., description="Video URL")
+    urls: list[str] = Field(..., min_length=1, description="List of video URLs")
 
 
 class VideoInfoResponse(BaseModel):
     """Response with video information."""
     
-    info: VideoDetail = Field(..., description="Video information")
+    infos: list[VideoDetail] = Field(default_factory=list, description="List of video information")
 
 
 class ErrorResponse(BaseModel):

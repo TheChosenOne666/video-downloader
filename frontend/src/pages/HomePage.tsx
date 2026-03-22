@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import URLInput from '../components/URLInput';
 import FormatSelector from '../components/FormatSelector';
 import FeatureCards from '../components/FeatureCard';
+import VideoPreview from '../components/VideoPreview';
 
 export default function HomePage() {
   const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading } = useApp();
@@ -46,6 +47,10 @@ export default function HomePage() {
         <div className="glass-card p-6 md:p-8 animate-slide-up">
           <URLInput />
           
+          {/* Video Preview - Shows after parsing */}
+          <VideoPreview />
+          
+          {/* Format Selector - Shows after parsing */}
           {videoInfos.length > 0 && (
             <div className="mt-6 pt-6 border-t border-surface-lighter">
               <FormatSelector />

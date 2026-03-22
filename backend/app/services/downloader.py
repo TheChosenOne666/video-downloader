@@ -90,13 +90,22 @@ class VideoDownloader:
         format_id: Optional[str] = None,
         audio_only: bool = False,
     ) -> dict:
-        """Get yt-dlp options."""
+        """Get yt-dlp options with anti-hotlinking and anti-cookie headers."""
         opts = {
             "outtmpl": str(output_path / "%(id)s.%(ext)s"),
             "quiet": True,
             "no_warnings": True,
             "progress_hooks": [progress.update],
             "noplaylist": True,  # Download only single video
+            # Anti-hotlinking headers (防盗链绕过)
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "*/*",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            },
+            # Anti-cookie bypass (免登录绕过)
+            "nocheckcertificate": True,  # Skip SSL certificate verification
+            "cookiefile": None,  # Explicitly disable cookies
         }
         
         if audio_only:
@@ -117,7 +126,18 @@ class VideoDownloader:
         """Extract video information without downloading."""
         
         def _extract() -> dict:
-            with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
+            # Anti-cookie-bypass options for platforms like Douyin
+            opts = {
+                "quiet": True,
+                "no_warnings": True,
+                "extract_flat": False,
+                # Anti-cookie bypass strategies
+                "nocheckcertificate": True,  # Skip SSL certificate verification for some platforms
+                "cookiefile": None,  # Explicitly disable cookies
+                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            }
+            
+            with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(url, download=False)
         
         loop = asyncio.get_event_loop()
