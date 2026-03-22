@@ -1,0 +1,18 @@
+# FastAPI and server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# Video download
+yt-dlp==2025.3.21
+
+# Async support
+aiofiles==24.1.0
+httpx==0.28.1
+
+# Data validation
+pydantic==2.10.5
+pydantic-settings==2.8.0
+
+# Utilities
+python-dotenv==1.0.1
