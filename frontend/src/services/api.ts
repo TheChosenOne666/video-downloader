@@ -48,7 +48,13 @@ export async function startDownload(urls: string[], format?: string): Promise<Do
 
 export async function getTaskStatus(taskId: string): Promise<StatusResponse> {
   const response = await fetch(`${API_BASE}/status/${taskId}`);
-  return handleResponse<StatusResponse>(response);
+  const data = await handleResponse<any>(response);
+  
+  // 将后端的 items 字段映射为 videos
+  return {
+    ...data,
+    videos: data.items || [],
+  };
 }
 
 export function getDownloadUrl(taskId: string, filename: string): string {

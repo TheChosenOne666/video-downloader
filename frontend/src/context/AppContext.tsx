@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { PageType, VideoInfo, DownloadTask } from '../types';
 import { getVideoInfo, startDownload, getTaskStatus } from '../services/api';
 
@@ -43,6 +43,15 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
 
+  // 轮询定时器清理
+  useEffect(() => {
+    return () => {
+      if (window['downloadInterval']) {
+        clearInterval(window['downloadInterval']);
+      }
+    };
+  }, []);
+
   const setPage = useCallback((page: PageType) => {
     setState(prev => ({ ...prev, page, error: null }));
   }, []);
@@ -77,6 +86,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const startDownloading = useCallback(async () => {
     if (state.urls.length === 0) return;
 
+    // 清理之前的定时器
+    if (window['downloadInterval']) {
+      clearInterval(window['downloadInterval']);
+    }
+
     setState(prev => ({ 
       ...prev, 
       loading: true, 
@@ -92,6 +106,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await startDownload(state.urls, state.selectedFormat);
+      
+      // 启动状态轮询（每 2 秒检查一次）
+      const interval = setInterval(() => {
+        fetchStatus();
+      }, 2000);
+      
+      window['downloadInterval'] = interval;
+      
       setState(prev => ({ 
         ...prev, 
         taskId: response.taskId, 
@@ -99,7 +121,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         tasks: state.urls.map((url, i) => ({
           taskId: response.taskId,
           url,
-          title: response.videos[i]?.title,
+          title: state.videoInfos[i]?.title || '',
           status: 'downloading' as const,
           progress: 0,
         })),
@@ -111,38 +133,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loading: false,
       }));
     }
-  }, [state.urls, state.selectedFormat]);
+  }, [state.urls, state.selectedFormat, state.videoInfos]);
 
   const fetchStatus = useCallback(async () => {
     if (!state.taskId) return;
 
     try {
       const status = await getTaskStatus(state.taskId);
+      
+      // 提取完成文件的列表
       const completedFiles = status.videos
         .filter(v => v.status === 'completed' && v.filename)
         .map(v => ({ filename: v.filename!, title: v.title }));
 
       setState(prev => ({
         ...prev,
-        tasks: state.urls.map((url, i) => ({
-          taskId: state.taskId!,
-          url,
-          title: status.videos[i]?.title,
-          status: status.videos[i]?.status || 'pending',
-          progress: status.videos[i]?.progress || 0,
-          speed: status.videos[i]?.speed,
-          eta: status.videos[i]?.eta,
-          error: status.videos[i]?.error,
-        })),
+        tasks: state.urls.map((url, i) => {
+          const video = status.videos[i];
+          return {
+            taskId: state.taskId!,
+            url,
+            title: video?.title || prev.tasks[i]?.title || '',
+            status: (video?.status || 'pending') as DownloadTask['status'],
+            progress: video?.progress || 0,
+            speed: video?.speed,
+            eta: video?.eta,
+            error: video?.error,
+          };
+        }),
         completedFiles,
-        page: status.status === 'completed' ? 'complete' : prev.page,
+        page: status.status === 'completed' || status.completed >= state.urls.length ? 'complete' : prev.page,
       }));
+      
+      // 如果任务完成，清除定时器
+      if (status.status === 'completed' || status.completed >= state.urls.length) {
+        clearInterval(window['downloadInterval']);
+        delete window['downloadInterval'];
+      }
     } catch (err) {
       console.error('Failed to fetch status:', err);
     }
   }, [state.taskId, state.urls]);
 
   const reset = useCallback(() => {
+    // 清除定时器
+    if (window['downloadInterval']) {
+      clearInterval(window['downloadInterval']);
+      delete window['downloadInterval'];
+    }
     setState(initialState);
   }, []);
 

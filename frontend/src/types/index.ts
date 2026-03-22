@@ -38,17 +38,19 @@ export interface DownloadResponse {
 
 export interface StatusResponse {
   taskId: string;
-  status: 'pending' | 'processing' | 'completed' | 'error';
+  status: 'pending' | 'downloading' | 'completed' | 'failed';
   progress: number;
+  total: number;
+  completed: number;
+  failed: number;
   videos: VideoStatus[];
-  totalSize?: string;
   error?: string;
 }
 
 export interface VideoStatus {
   url: string;
   title?: string;
-  status: 'pending' | 'downloading' | 'completed' | 'error';
+  status: 'pending' | 'downloading' | 'completed' | 'failed';
   progress: number;
   speed?: string;
   eta?: string;

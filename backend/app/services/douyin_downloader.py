@@ -1,6 +1,9 @@
-"""抖音无水印下载模块 v5
+"""抖音无水印下载模块 v7
 
-整合多种解析策略
+基于用户提供的解决方案：
+1. 通过分享链接 302 重定向提取 video_id  
+2. 从抖音页面直接提取视频信息（绕过 API 限制）
+3. 替换 playwm 为 play 获取无水印视频
 """
 
 import asyncio
@@ -8,7 +11,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Callable, Optional
-from urllib.parse import urlparse, quote
+from urllib.parse import urlparse
 
 import httpx
 
@@ -22,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class DouyinDownloader:
-    """抖音无水印下载器 v5"""
+    """抖音无水印下载器 v7"""
     
     DOUYIN_DOMAINS = ['douyin.com', 'v.douyin.com', 'www.douyin.com', 'iesdouyin.com']
     
@@ -30,7 +33,11 @@ class DouyinDownloader:
         self.client = httpx.AsyncClient(
             follow_redirects=True,
             timeout=60.0,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            }
         )
     
     def is_douyin_url(self, url: str) -> bool:
@@ -47,14 +54,15 @@ class DouyinDownloader:
         response = await self.client.head(url, follow_redirects=True)
         final_url = str(response.url)
         
-        # 提取 video_id
         video_id = self._extract_video_id(final_url)
         if not video_id:
             raise ValueError(f"无法从 URL 提取视频 ID: {final_url}")
         
-        # 方法 1：尝试公开的抖音解析 API
-        video_info = await self._parse_via_api(url, video_id)
-        if video_info and video_info.thumbnail:
+        logger.info(f"抖音视频 ID: {video_id}")
+        
+        # 从页面提取视频信息
+        video_info = await self._extract_from_page(final_url)
+        if video_info:
             return video_info
         
         # 兜底
@@ -75,73 +83,62 @@ class DouyinDownloader:
                 return match.group(1)
         return None
     
-    async def _parse_via_api(self, url: str, video_id: str) -> Optional[VideoDetail]:
-        """尝试使用公开 API 解析"""
-        
-        # 多个备用 API
-        apis = [
-            f"https://api.vctool.cn/tool/dy?url={quote(url)}",
-            f"https://www.linilib.com/api/dy?url={quote(url)}",
-        ]
-        
-        for api_url in apis:
-            try:
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Accept": "application/json",
-                }
-                
-                resp = await self.client.get(api_url, headers=headers, timeout=15.0)
-                
-                if resp.status_code == 200:
-                    data = resp.json()
-                    
-                    # 不同 API 的响应格式不同，尝试多种字段名
-                    title = ""
-                    cover = ""
-                    author = ""
-                    play_url = ""
-                    description = ""
-                    
-                    # 常见字段名映射
-                    if isinstance(data, dict):
-                        # 顶层字段
-                        title = data.get('title') or data.get('desc') or data.get('desc', '')
-                        cover = data.get('cover') or data.get('cover_url') or data.get('image_list', [{}])[0].get('url_prefix', '') if isinstance(data.get('image_list'), list) else ''
-                        author = data.get('author') or data.get('nickname') or ''
-                        play_url = data.get('play_url') or data.get('nwm_video_url') or data.get('video_url') or ''
-                        description = data.get('desc') or data.get('description') or title
-                        
-                        # 嵌套字段
-                        if 'data' in data and isinstance(data['data'], dict):
-                            d = data['data']
-                            if not title:
-                                title = d.get('title') or d.get('desc') or d.get('desc_text', '')
-                            if not cover:
-                                cover = d.get('cover') or d.get('cover_url')
-                            if not author:
-                                author = d.get('author') or d.get('nickname') or d.get('name', '')
-                            if not play_url:
-                                play_url = d.get('play_url') or d.get('nwm_video_url') or d.get('download_url')
-                            if not description:
-                                description = d.get('desc') or title
-                        
-                        # 如果有数据，返回
-                        if title or cover or author or play_url:
-                            return VideoDetail(
-                                title=title[:100] if title else f"抖音视频{video_id}",
-                                duration=0,
-                                thumbnail=cover.replace('\\/', '/') if cover else "",
-                                uploader=author,
-                                description=description[:200] if description else "",
-                                formats=[{"format_id": "best", "ext": "mp4", "resolution": "原画"}],
-                            )
-                    
-            except Exception as e:
-                logger.info(f"API {api_url} 解析失败：{e}")
-                continue
-        
-        return None
+    async def _extract_from_page(self, url: str) -> Optional[VideoDetail]:
+        """从页面提取视频信息"""
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://www.douyin.com/",
+            }
+            
+            resp = await self.client.get(url, headers=headers)
+            content = resp.text
+            
+            # 提取标题
+            title = ""
+            patterns = [r'"desc":\s*"([^"]*)"', r'"title":\s*"([^"]*)"', r'<title>([^<]+)</title>']
+            for pattern in patterns:
+                match = re.search(pattern, content)
+                if match:
+                    title = match.group(1).replace('\\u0026', '&').replace('\\n', ' ').strip()
+                    if title and len(title) > 3:
+                        break
+            
+            # 提取 UP 主
+            uploader = ""
+            match = re.search(r'"nickname":\s*"([^"]*)"', content)
+            if match:
+                uploader = match.group(1)
+            
+            # 提取封面
+            thumbnail = ""
+            match = re.search(r'"cover":\s*"([^"]*)"', content)
+            if match:
+                thumbnail = match.group(1).replace('\\/', '/')
+            
+            # 如果没有找到封面，尝试其他模式
+            if not thumbnail:
+                match = re.search(r'"origin_cover":\s*\{[^}]*"url_list":\s*\[([^\]]*)\]', content)
+                if match:
+                    url_match = re.search(r'"url":\s*"([^"]*)"', match.group(1))
+                    if url_match:
+                        thumbnail = url_match.group(1).replace('\\/', '/')
+            
+            if title or thumbnail or uploader:
+                return VideoDetail(
+                    title=title[:100] if title else "抖音视频",
+                    duration=0,
+                    thumbnail=thumbnail,
+                    uploader=uploader,
+                    description=title,
+                    formats=[],
+                )
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"从页面提取失败：{e}")
+            return None
     
     async def download_video(self, url: str, output_path: Path, progress, status_callback: Optional[Callable] = None) -> DownloadItemStatus:
         """下载抖音视频"""
@@ -162,11 +159,13 @@ class DouyinDownloader:
             if status_callback:
                 status_callback(status)
             
-            # 获取下载地址
-            video_url = await self._get_download_url(url)
+            # 获取无水印视频下载地址
+            video_url = await self._get_download_url(url, video_id)
             
             if not video_url:
                 raise ValueError("无法获取视频下载地址")
+            
+            logger.info(f"抖音视频下载地址：{video_url[:100]}...")
             
             filename = f"douyin_{video_id}.mp4"
             file_path = output_path / filename
@@ -198,6 +197,8 @@ class DouyinDownloader:
             status.status = DownloadStatus.COMPLETED
             status.progress = 100.0
             
+            logger.info(f"抖音视频下载完成：{filename}")
+            
             if status_callback:
                 status_callback(status)
                 
@@ -211,37 +212,53 @@ class DouyinDownloader:
         
         return status
     
-    async def _get_download_url(self, url: str) -> Optional[str]:
+    async def _get_download_url(self, url: str, video_id: str) -> Optional[str]:
         """获取无水印视频下载地址"""
-        
-        apis = [
-            f"https://api.vctool.cn/tool/dy?url={quote(url)}",
-            f"https://www.linilib.com/api/dy?url={quote(url)}",
-        ]
-        
-        for api_url in apis:
-            try:
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Accept": "application/json"}
-                resp = await self.client.get(api_url, headers=headers, timeout=15.0)
-                
-                if resp.status_code == 200:
-                    data = resp.json()
+        try:
+            # 访问视频页面
+            response = await self.client.head(url, follow_redirects=True)
+            final_url = str(response.url)
+            
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://www.douyin.com/",
+            }
+            
+            resp = await self.client.get(final_url, headers=headers)
+            content = resp.text
+            
+            # 查找视频 URL - 尝试多种模式
+            patterns = [
+                r'"play_addr":\s*\{[^}]*"url_list":\s*\[([^\]]*)\]',
+                r'"play":\s*"([^"]+)"',
+                r'(https?://[^\s"<>]*\.mp4[^\s"<>]*)',
+            ]
+            
+            for pattern in patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        match = match[0]
                     
-                    if isinstance(data, dict):
-                        play_url = (
-                            data.get('play_url') or data.get('nwm_video_url') or data.get('video_url') or
-                            data.get('data', {}).get('play_url') or data.get('data', {}).get('nwm_video_url') or
-                            data.get('data', {}).get('download_url')
-                        )
-                        
-                        if play_url:
-                            return play_url if not play_url.startswith('//') else 'https:' + play_url
+                    # 提取 URL
+                    url_match = re.search(r'"url":\s*"([^"]+)"', match) if '"' in match else None
+                    video_url = url_match.group(1) if url_match else match
                     
-            except Exception as e:
-                logger.info(f"获取下载地址失败：{e}")
-                continue
-        
-        return None
+                    video_url = video_url.replace('\\/', '/')
+                    
+                    # 替换 playwm 为 play 获取无水印
+                    if 'playwm' in video_url:
+                        video_url = video_url.replace('playwm', 'play')
+                    
+                    # 验证 URL
+                    if video_url.startswith('http') and '.mp4' in video_url:
+                        return video_url
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"获取下载地址失败：{e}")
+            return None
     
     async def close(self):
         await self.client.aclose()
