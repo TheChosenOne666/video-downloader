@@ -1,15 +1,22 @@
 export interface VideoInfo {
-  url: string;
   title: string;
+  duration?: number;
   thumbnail?: string;
-  duration?: string;
-  formats: Format[];
+  uploader?: string;
+  view_count?: number;
+  description?: string;
+  formats?: FormatInfo[];
 }
 
-export interface Format {
-  quality: string;
-  format: string;
-  fileSize?: string;
+export interface FormatInfo {
+  format_id: string;
+  ext: string;
+  resolution?: string;
+  fps?: number;
+  vcodec?: string;
+  acodec?: string;
+  filesize?: number;
+  filesize_approx?: number;
 }
 
 export interface DownloadTask {

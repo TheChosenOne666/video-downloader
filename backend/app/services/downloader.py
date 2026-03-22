@@ -17,6 +17,7 @@ from app.models.schemas import (
     VideoDetail,
     VideoInfo,
 )
+from app.services.douyin_downloader import douyin_downloader
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,12 @@ class VideoDownloader:
     async def get_video_info(self, url: str) -> VideoDetail:
         """Extract video information without downloading."""
         
+        # 抖音使用专用解析器
+        if douyin_downloader.is_douyin_url(url):
+            logger.info(f"使用抖音专用解析器: {url}")
+            return await douyin_downloader.get_video_info(url)
+        
+        # 其他平台使用 yt-dlp
         def _extract() -> dict:
             # Anti-cookie-bypass options for platforms like Douyin
             opts = {
@@ -223,7 +230,18 @@ class VideoDownloader:
             if status_callback:
                 status_callback(status)
             
-            # Download
+            # 抖音使用专用下载器
+            if douyin_downloader.is_douyin_url(url):
+                logger.info(f"使用抖音专用下载器: {url}")
+                result = await douyin_downloader.download_video(
+                    url=url,
+                    output_path=task_dir,
+                    progress=progress,
+                    status_callback=status_callback,
+                )
+                return result
+            
+            # 其他平台使用 yt-dlp
             def _download() -> str:
                 opts = self._get_ydl_opts(task_dir, progress, format_id, audio_only)
                 with yt_dlp.YoutubeDL(opts) as ydl:
