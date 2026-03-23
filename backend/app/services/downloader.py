@@ -93,7 +93,7 @@ class VideoDownloader:
     ) -> dict:
         """Get yt-dlp options with anti-hotlinking and anti-cookie headers."""
         opts = {
-            "outtmpl": str(output_path / "%(id)s.%(ext)s"),
+            "outtmpl": str(output_path / "%(id)s.%(ext)s"),  # 使用视频 ID 作为文件名，避免非法字符
             "quiet": True,
             "no_warnings": True,
             "progress_hooks": [progress.update],
