@@ -179,34 +179,49 @@ async def delete_task(task_id: str) -> None:
 async def proxy_image(url: str):
     """Proxy image requests to bypass referer restrictions."""
     try:
+        if not url:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing 'url' parameter",
+            )
+        
         # Determine appropriate referer based on URL
         parsed_url = urlparse(url)
         domain = parsed_url.netloc.lower()
         
-        # Platform-specific referer headers
-        referer_map = {
-            "bilibili.com": "https://www.bilibili.com/",
-            "youtube.com": "https://www.youtube.com/",
-            "youtu.be": "https://www.youtube.com/",
-            "douyin.com": "https://www.douyin.com/",
-            "tiktok.com": "https://www.tiktok.com/",
-            "ixigua.com": "https://www.ixigua.com/",
-            "kuaishou.com": "https://www.kuaishou.com/",
-        }
-        
-        # Find matching referer
-        referer = "https://www.google.com/"  # Default fallback
-        for platform, platform_referer in referer_map.items():
-            if platform in domain:
-                referer = platform_referer
-                break
-        
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Referer": referer,
-            "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        }
+        # Platform-specific headers for bypassing hotlink protection
+        if "hdslb.com" in domain or "bilibili.com" in domain or "bfs" in domain:
+            # B站防盗链 - 需要完整浏览器指纹
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Referer": "https://www.bilibili.com/",
+                "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Origin": "https://www.bilibili.com",
+                "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                "Sec-Ch-Ua-Mobile": "?0",
+                "Sec-Ch-Ua-Platform": '"Windows"',
+                "Sec-Fetch-Dest": "image",
+                "Sec-Fetch-Mode": "no-cors",
+                "Sec-Fetch-Site": "same-site",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+            }
+        elif "douyin.com" in domain or "douyinpic.com" in domain:
+            # 抖音防盗链
+            headers = {
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+                "Referer": "https://www.douyin.com/",
+                "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+            }
+        else:
+            # Default headers for other platforms
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Referer": f"{parsed_url.scheme}://{domain}/",
+                "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+            }
         
         async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
             response = await client.get(url, headers=headers)
@@ -219,10 +234,17 @@ async def proxy_image(url: str):
                 content=response.aiter_bytes(),
                 media_type=content_type,
                 headers={
-                    "Cache-Control": "public, max-age=3600",
+                    "Cache-Control": "public, max-age=86400",  # 缓存 24 小时
                     "Access-Control-Allow-Origin": "*",
+                    "X-Proxy-Cache": "HIT",
                 },
             )
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error proxying image {url}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to load image (HTTP {e.response.status_code})",
+        )
     except Exception as e:
         logger.error(f"Failed to proxy image {url}: {e}")
         raise HTTPException(

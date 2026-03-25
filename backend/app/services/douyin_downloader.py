@@ -394,7 +394,12 @@ class DouyinDownloader:
                         
                         if total_size > 0:
                             pct = min((downloaded / total_size) * 100, 100)
-                            progress.update(pct)
+                            # 使用 yt-dlp 风格的 progress 字典
+                            progress.update({
+                                "status": "downloading",
+                                "downloaded_bytes": downloaded,
+                                "total_bytes": total_size,
+                            })
                             status.progress = pct
                             if status_callback:
                                 status_callback(status)

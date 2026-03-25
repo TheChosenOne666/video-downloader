@@ -111,17 +111,17 @@ class VideoDownloader:
         
         if audio_only:
             opts["format"] = "bestaudio/best"
-            opts["postprocessors"] = [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }]
         elif format_id:
             opts["format"] = format_id
         else:
-            # Use single format to avoid ffmpeg dependency
-            # best = best pre-combined format (may be lower quality on some platforms)
-            opts["format"] = "best/bestvideo+bestaudio"
+            # 方案：分别下载视频和音频轨道，不合并
+            # 用户可以后期用播放器播放或自行合并
+            # 优先级：仅视频（最高画质） > 仅音频
+            opts["format"] = (
+                "bestvideo[ext=mp4]/bestvideo/"  # 仅视频（最高画质）
+                "bestaudio/"  # 仅音频
+                "best"  # 最佳可用
+            )
         
         return opts
     

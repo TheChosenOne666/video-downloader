@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { PageType, VideoInfo, DownloadTask } from '../types';
-import { getVideoInfo, startDownload, getTaskStatus, subscribeToProgress } from '../services/api';
+import { getVideoInfo, startDownload, getTaskStatus } from '../services/api';
 
 interface AppState {
   page: PageType;
@@ -42,16 +42,6 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
-  const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null);
-
-  // 清理 WebSocket 订阅
-  useEffect(() => {
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [unsubscribe]);
 
   const setPage = useCallback((page: PageType) => {
     setState(prev => ({ ...prev, page, error: null }));
@@ -87,54 +77,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const startDownloading = useCallback(async () => {
     if (state.urls.length === 0) return;
 
-    // 清理之前的订阅
-    if (unsubscribe) {
-      unsubscribe();
-    }
-
     setState(prev => ({ 
       ...prev, 
       loading: true, 
       error: null,
-      tasks: state.urls.map(url => ({
-        taskId: '',
-        url,
-        status: 'pending' as const,
-        progress: 0,
-      })),
       page: 'progress',
     }));
 
     try {
       const response = await startDownload(state.urls, state.selectedFormat);
-      
-      // 订阅 WebSocket 进度更新
-      const unsubscribeFn = subscribeToProgress(response.taskId, (data) => {
-        if (data.type === 'progress') {
-          // 更新单个任务进度
-          setState(prev => {
-            const newTasks = [...prev.tasks];
-            if (data.index < newTasks.length) {
-              newTasks[data.index] = {
-                ...newTasks[data.index],
-                ...data.status,
-              };
-            }
-            return { ...prev, tasks: newTasks };
-          });
-        } else if (data.type === 'completed') {
-          // 任务完成
-          setState(prev => ({
-            ...prev,
-            page: 'complete',
-            completedFiles: prev.tasks
-              .filter(t => t.status === 'completed' && t.filename)
-              .map(t => ({ filename: t.filename!, title: t.title })),
-          }));
-        }
-      });
-
-      setUnsubscribe(() => unsubscribeFn);
       
       setState(prev => ({ 
         ...prev, 
@@ -148,6 +99,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
           progress: 0,
         })),
       }));
+
+      // 启动轮询
+      let pollCount = 0;
+      const pollInterval = setInterval(async () => {
+        pollCount++;
+        
+        try {
+          const status = await getTaskStatus(response.taskId);
+          
+          setState(prev => ({
+            ...prev,
+            tasks: state.urls.map((url, i) => {
+              const video = status.videos[i];
+              return {
+                taskId: response.taskId,
+                url,
+                title: video?.title || prev.tasks[i]?.title || '',
+                status: (video?.status || 'pending') as DownloadTask['status'],
+                progress: video?.progress || 0,
+                filename: video?.filename,
+                error: video?.error,
+              };
+            }),
+          }));
+
+          // 检查完成
+          if (status.status === 'completed' || status.completed >= state.urls.length) {
+            clearInterval(pollInterval);
+            setState(prev => ({
+              ...prev,
+              page: 'complete',
+              completedFiles: status.videos
+                .filter(v => v.status === 'completed' && v.filename)
+                .map(v => ({ filename: v.filename!, title: v.title })),
+            }));
+          }
+        } catch (err) {
+          console.error('Poll error:', err);
+        }
+
+        if (pollCount >= 600) {
+          clearInterval(pollInterval);
+        }
+      }, 500);
+
+      (window as any).downloadInterval = pollInterval;
+      
     } catch (err) {
       setState(prev => ({ 
         ...prev, 
@@ -155,7 +153,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loading: false,
       }));
     }
-  }, [state.urls, state.selectedFormat, state.videoInfos, unsubscribe]);
+  }, [state.urls, state.selectedFormat, state.videoInfos]);
 
   const fetchStatus = useCallback(async () => {
     if (!state.taskId) return;
@@ -163,11 +161,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const status = await getTaskStatus(state.taskId);
       
-      // 提取完成文件的列表
-      const completedFiles = status.videos
-        .filter(v => v.status === 'completed' && v.filename)
-        .map(v => ({ filename: v.filename!, title: v.title }));
-
       setState(prev => ({
         ...prev,
         tasks: state.urls.map((url, i) => {
@@ -178,27 +171,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
             title: video?.title || prev.tasks[i]?.title || '',
             status: (video?.status || 'pending') as DownloadTask['status'],
             progress: video?.progress || 0,
-            speed: video?.speed,
-            eta: video?.eta,
+            filename: video?.filename,
             error: video?.error,
           };
         }),
-        completedFiles,
-        page: status.status === 'completed' || status.completed >= state.urls.length ? 'complete' : prev.page,
+        completedFiles: status.videos
+          .filter(v => v.status === 'completed' && v.filename)
+          .map(v => ({ filename: v.filename!, title: v.title })),
       }));
     } catch (err) {
-      console.error('Failed to fetch status:', err);
+      console.error('Fetch status error:', err);
     }
   }, [state.taskId, state.urls]);
 
   const reset = useCallback(() => {
-    // 清除订阅
-    if (unsubscribe) {
-      unsubscribe();
-      setUnsubscribe(null);
+    if ((window as any).downloadInterval) {
+      clearInterval((window as any).downloadInterval);
+      delete (window as any).downloadInterval;
     }
     setState(initialState);
-  }, [unsubscribe]);
+  }, []);
 
   return (
     <AppContext.Provider value={{

@@ -125,7 +125,14 @@ export async function startDownload(urls: string[], format?: string): Promise<Do
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ urls, format }),
   });
-  return handleResponse<DownloadResponse>(response);
+  const data = await handleResponse<any>(response);
+  
+  // 将后端的 task_id 映射为 taskId
+  return {
+    taskId: data.task_id,
+    videos: data.videos || [],
+    message: data.message || '',
+  };
 }
 
 export async function getTaskStatus(taskId: string): Promise<StatusResponse> {
