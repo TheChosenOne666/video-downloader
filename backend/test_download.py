@@ -1,45 +1,33 @@
-import asyncio
 import httpx
-import time
+import json
+import asyncio
 
-async def test_complete_flow():
-    # 1. 提交下载任务
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        r = await client.post(
-            'http://localhost:8000/api/download',
-            json={'urls': ['https://www.bilibili.com/video/BV1xx411c7mD']},
-        )
-        print('1. Submit task:', r.status_code)
-        data = r.json()
-        task_id = data['task_id']
-        print('   Task ID:', task_id)
+async def test():
+    url = "http://localhost:8080/api/download"
+    data = {
+        "urls": ["https://www.bilibili.com/video/BV1GJ411x7h7"],
+        "quality": "best",
+        "format": "best"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=data)
+        result = response.json()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
         
-        # 2. 轮询状态直到完成
-        max_checks = 60
-        for i in range(max_checks):
-            time.sleep(2)
-            r = await client.get(f'http://localhost:8000/api/status/{task_id}')
-            status_data = r.json()
-            items = status_data.get('items', [])
+        # Get task status
+        if 'task_id' in result:
+            task_id = result['task_id']
+            print(f"\nTask ID: {task_id}")
             
-            completed = sum(1 for item in items if item.get('status') == 'completed')
-            failed = sum(1 for item in items if item.get('status') == 'failed')
+            # Wait a bit for download to start
+            await asyncio.sleep(3)
             
-            print(f'2. Check {i+1}: completed={completed}, failed={failed}')
-            
-            if failed > 0:
-                print('   FAILED:', items)
-                break
-            
-            if completed >= 1:
-                print('   COMPLETED!')
-                
-                # 3. 下载第一个文件
-                filename = items[0].get('filename')
-                if filename:
-                    r = await client.get(f'http://localhost:8000/api/download/{task_id}/{filename}')
-                    cl = r.headers.get('content-length', 'unknown')
-                    print(f'3. Download file: {r.status_code}, size: {cl}')
-                break
+            # Check status
+            status_url = f"http://localhost:8080/api/status/{task_id}"
+            status_response = await client.get(status_url)
+            status = status_response.json()
+            print("\nTask Status:")
+            print(json.dumps(status, indent=2, ensure_ascii=False))
 
-asyncio.run(test_complete_flow())
+asyncio.run(test())

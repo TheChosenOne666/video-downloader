@@ -69,7 +69,7 @@ class VideoDownloader:
     """Service for downloading videos using yt-dlp."""
     
     def __init__(self) -> None:
-        self.download_dir: Path = settings.download_dir
+        self.download_dir: Path = settings.download_dir.resolve()
         self._active_downloads: dict[str, asyncio.Task] = {}
     
     def _sanitize_filename(self, filename: str) -> str:
@@ -119,7 +119,9 @@ class VideoDownloader:
         elif format_id:
             opts["format"] = format_id
         else:
-            opts["format"] = "bestvideo+bestaudio/best"
+            # Use single format to avoid ffmpeg dependency
+            # best = best pre-combined format (may be lower quality on some platforms)
+            opts["format"] = "best/bestvideo+bestaudio"
         
         return opts
     

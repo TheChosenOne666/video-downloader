@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { PageType, VideoInfo, DownloadTask } from '../types';
-import { getVideoInfo, startDownload, getTaskStatus } from '../services/api';
+import { getVideoInfo, startDownload, getTaskStatus, subscribeToProgress } from '../services/api';
 
 interface AppState {
   page: PageType;
@@ -42,15 +42,16 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
+  const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null);
 
-  // 轮询定时器清理
+  // 清理 WebSocket 订阅
   useEffect(() => {
     return () => {
-      if (window['downloadInterval']) {
-        clearInterval(window['downloadInterval']);
+      if (unsubscribe) {
+        unsubscribe();
       }
     };
-  }, []);
+  }, [unsubscribe]);
 
   const setPage = useCallback((page: PageType) => {
     setState(prev => ({ ...prev, page, error: null }));
@@ -86,9 +87,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const startDownloading = useCallback(async () => {
     if (state.urls.length === 0) return;
 
-    // 清理之前的定时器
-    if (window['downloadInterval']) {
-      clearInterval(window['downloadInterval']);
+    // 清理之前的订阅
+    if (unsubscribe) {
+      unsubscribe();
     }
 
     setState(prev => ({ 
@@ -107,12 +108,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const response = await startDownload(state.urls, state.selectedFormat);
       
-      // 启动状态轮询（每 2 秒检查一次）
-      const interval = setInterval(() => {
-        fetchStatus();
-      }, 2000);
-      
-      window['downloadInterval'] = interval;
+      // 订阅 WebSocket 进度更新
+      const unsubscribeFn = subscribeToProgress(response.taskId, (data) => {
+        if (data.type === 'progress') {
+          // 更新单个任务进度
+          setState(prev => {
+            const newTasks = [...prev.tasks];
+            if (data.index < newTasks.length) {
+              newTasks[data.index] = {
+                ...newTasks[data.index],
+                ...data.status,
+              };
+            }
+            return { ...prev, tasks: newTasks };
+          });
+        } else if (data.type === 'completed') {
+          // 任务完成
+          setState(prev => ({
+            ...prev,
+            page: 'complete',
+            completedFiles: prev.tasks
+              .filter(t => t.status === 'completed' && t.filename)
+              .map(t => ({ filename: t.filename!, title: t.title })),
+          }));
+        }
+      });
+
+      setUnsubscribe(() => unsubscribeFn);
       
       setState(prev => ({ 
         ...prev, 
@@ -133,7 +155,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loading: false,
       }));
     }
-  }, [state.urls, state.selectedFormat, state.videoInfos]);
+  }, [state.urls, state.selectedFormat, state.videoInfos, unsubscribe]);
 
   const fetchStatus = useCallback(async () => {
     if (!state.taskId) return;
@@ -164,25 +186,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         completedFiles,
         page: status.status === 'completed' || status.completed >= state.urls.length ? 'complete' : prev.page,
       }));
-      
-      // 如果任务完成，清除定时器
-      if (status.status === 'completed' || status.completed >= state.urls.length) {
-        clearInterval(window['downloadInterval']);
-        delete window['downloadInterval'];
-      }
     } catch (err) {
       console.error('Failed to fetch status:', err);
     }
   }, [state.taskId, state.urls]);
 
   const reset = useCallback(() => {
-    // 清除定时器
-    if (window['downloadInterval']) {
-      clearInterval(window['downloadInterval']);
-      delete window['downloadInterval'];
+    // 清除订阅
+    if (unsubscribe) {
+      unsubscribe();
+      setUnsubscribe(null);
     }
     setState(initialState);
-  }, []);
+  }, [unsubscribe]);
 
   return (
     <AppContext.Provider value={{

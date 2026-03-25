@@ -44,9 +44,10 @@ async def get_video_info(request: VideoInfoRequest) -> VideoInfoResponse:
         try:
             info = await downloader.get_video_info(url)
             infos.append(info)
+            logger.info(f"Successfully parsed: {url} -> {info.title}")
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Failed to get video info for {url}: {e}")
+            logger.error(f"Failed to get video info for {url}: {e}", exc_info=True)
             
             # Provide user-friendly error messages
             if "cookies" in error_msg.lower() or "login" in error_msg.lower():
@@ -56,7 +57,7 @@ async def get_video_info(request: VideoInfoRequest) -> VideoInfoResponse:
             elif "unsupported" in error_msg.lower():
                 errors.append(f"暂不支持该视频平台")
             else:
-                errors.append(f"无法解析视频链接，请检查链接是否正确")
+                errors.append(f"无法解析视频链接: {error_msg[:100]}")
     
     if not infos:
         error_detail = errors[0] if errors else "无法解析视频链接"

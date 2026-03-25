@@ -32,5 +32,7 @@ class Settings(BaseSettings):
 # Global settings instance
 settings = Settings()
 
-# Ensure download directory exists
+# Ensure download directory exists (resolve relative to backend dir)
+_backend_dir = Path(__file__).resolve().parent.parent.parent
+settings.download_dir = (_backend_dir / "downloads").resolve()
 settings.download_dir.mkdir(parents=True, exist_ok=True)

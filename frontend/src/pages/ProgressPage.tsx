@@ -9,9 +9,10 @@ export default function ProgressPage() {
   useEffect(() => {
     if (!taskId) return;
 
+    // 更快轮询（500ms）以显示实时进度
     const interval = setInterval(() => {
       fetchStatus();
-    }, 1000);
+    }, 500);
 
     return () => clearInterval(interval);
   }, [taskId, fetchStatus]);

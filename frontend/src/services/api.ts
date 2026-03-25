@@ -1,6 +1,7 @@
 import type { VideoInfo, DownloadResponse, StatusResponse } from '../types';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = 'http://localhost:8001/api';
+const WS_BASE = 'ws://localhost:8001';
 
 class ApiError extends Error {
   status: number;
@@ -9,6 +10,87 @@ class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+  }
+}
+
+// WebSocket progress listener
+type ProgressListener = (data: any) => void;
+const progressListeners = new Map<string, Set<ProgressListener>>();
+const wsConnections = new Map<string, WebSocket>();
+
+export function subscribeToProgress(taskId: string, listener: ProgressListener): () => void {
+  // Add listener
+  if (!progressListeners.has(taskId)) {
+    progressListeners.set(taskId, new Set());
+  }
+  progressListeners.get(taskId)!.add(listener);
+
+  // Connect WebSocket if not already connected
+  if (!wsConnections.has(taskId)) {
+    connectWebSocket(taskId);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    const listeners = progressListeners.get(taskId);
+    if (listeners) {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        progressListeners.delete(taskId);
+        disconnectWebSocket(taskId);
+      }
+    }
+  };
+}
+
+function connectWebSocket(taskId: string) {
+  try {
+    const ws = new WebSocket(`${WS_BASE}/ws/${taskId}`);
+
+    ws.onopen = () => {
+      console.log(`WebSocket connected for task: ${taskId}`);
+      // Send ping to keep connection alive
+      const pingInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send('ping');
+        } else {
+          clearInterval(pingInterval);
+        }
+      }, 30000);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const listeners = progressListeners.get(taskId);
+        if (listeners) {
+          listeners.forEach(listener => listener(data));
+        }
+      } catch (e) {
+        console.error('Failed to parse WebSocket message:', e);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error(`WebSocket error for task ${taskId}:`, error);
+    };
+
+    ws.onclose = () => {
+      console.log(`WebSocket closed for task: ${taskId}`);
+      wsConnections.delete(taskId);
+    };
+
+    wsConnections.set(taskId, ws);
+  } catch (e) {
+    console.error('Failed to connect WebSocket:', e);
+  }
+}
+
+function disconnectWebSocket(taskId: string) {
+  const ws = wsConnections.get(taskId);
+  if (ws) {
+    ws.close();
+    wsConnections.delete(taskId);
   }
 }
 

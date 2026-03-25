@@ -16,6 +16,21 @@ from app.services.downloader import downloader
 
 logger = logging.getLogger(__name__)
 
+# Global reference to WebSocket manager (will be set from main.py)
+_ws_manager = None
+
+
+def set_ws_manager(manager):
+    """Set the global WebSocket manager reference."""
+    global _ws_manager
+    _ws_manager = manager
+
+
+async def broadcast_progress(task_id: str, progress_data: dict):
+    """Broadcast progress to WebSocket clients."""
+    if _ws_manager:
+        await _ws_manager.broadcast_progress(task_id, progress_data)
+
 
 class DownloadTask:
     """Represents a download task."""
@@ -90,11 +105,26 @@ class TaskManager:
         """Execute download task."""
         task.status = DownloadStatus.DOWNLOADING
         
+        # 包装回调来同时更新 WebSocket
+        def status_callback_with_broadcast(index: int, status: DownloadItemStatus):
+            task.update_item_status(index, status)
+            # 异步广播进度到 WebSocket（不阻塞）
+            asyncio.create_task(broadcast_progress(task.task_id, {
+                "type": "progress",
+                "index": index,
+                "status": status.model_dump(),
+                "overall": {
+                    "completed": task.completed,
+                    "failed": task.failed,
+                    "total": len(task.items),
+                }
+            }))
+        
         try:
             results = await downloader.download_batch(
                 urls=task.request.urls,
                 task_id=task.task_id,
-                status_callback=lambda i, s: task.update_item_status(i, s),
+                status_callback=status_callback_with_broadcast,
                 format_id=task.request.format_id,
                 audio_only=task.request.audio_only,
             )
@@ -117,6 +147,12 @@ class TaskManager:
         
         finally:
             task.finished_at = datetime.now()
+            # 广播完成状态
+            await broadcast_progress(task.task_id, {
+                "type": "completed",
+                "status": task.status.value,
+                "task": task.to_response().model_dump(),
+            })
     
     async def get_task(self, task_id: str) -> Optional[DownloadTask]:
         """Get task by ID."""
