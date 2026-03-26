@@ -14,6 +14,7 @@
 - 📊 **实时进度** - 可视化下载进度追踪
 - 🎨 **现代 UI** - React + Tailwind CSS 精美界面
 - 🔒 **防盗链绕过** - 智能处理各平台图片防盗链
+- 🤖 **AI 视频总结** - 智能生成摘要、提取字幕、思维导图、AI 问答（SSE 流式输出）
 
 ## 📸 截图
 
@@ -92,6 +93,7 @@ npm run dev
 - [技术设计文档](docs/TECHNICAL_DESIGN.md)
 - [API 接口文档](docs/API.md)
 - [开发指南](docs/DEVELOPMENT.md)
+- [AI 视频总结功能](docs/AI_SUMMARIZE_FEATURE.md)
 
 ## 🔧 配置
 
@@ -114,6 +116,9 @@ class Settings(BaseSettings):
 DOWNLOAD_DIR=./downloads
 MAX_CONCURRENT_DOWNLOADS=3
 DEBUG=true
+VOLCENGINE_API_KEY=your-volcengine-api-key
+VOLCENGINE_MODEL=doubao-seed-2-0-lite-260215
+VOLCENGINE_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 ```
 
 ## 🌐 支持的平台
