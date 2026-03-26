@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.download import router as download_router
+from app.api.summarize import router as summarize_router
 from app.core.config import settings
 from app.services.task_manager import set_ws_manager
 
@@ -82,7 +83,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="Video downloader service using yt-dlp with WebSocket progress",
+    description="Video downloader service using yt-dlp with WebSocket progress and AI summarization",
     lifespan=lifespan,
 )
 
@@ -97,6 +98,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(download_router)
+app.include_router(summarize_router)
 
 
 @app.get("/", tags=["health"])
@@ -106,6 +108,7 @@ async def root() -> dict:
         "name": settings.app_name,
         "version": settings.app_version,
         "status": "running",
+        "features": ["download", "ai-summarize"],
     }
 
 

@@ -1,7 +1,7 @@
 import type { VideoInfo, DownloadResponse, StatusResponse } from '../types';
 
-const API_BASE = 'http://localhost:8001/api';
-const WS_BASE = 'ws://localhost:8001';
+const API_BASE = 'http://localhost:8000/api';
+const WS_BASE = 'ws://localhost:8000';
 
 class ApiError extends Error {
   status: number;

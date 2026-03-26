@@ -16,6 +16,18 @@ class VideoInfo(BaseModel):
     uploader: Optional[str] = Field(None, description="Uploader name")
     view_count: Optional[int] = Field(None, description="View count")
     description: Optional[str] = Field(None, description="Video description")
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "VideoInfo":
+        """Create VideoInfo from dict, handling float->int conversion."""
+        return cls(
+            title=data.get("title", "Unknown"),
+            duration=int(data["duration"]) if data.get("duration") is not None else None,
+            thumbnail=data.get("thumbnail"),
+            uploader=data.get("uploader"),
+            view_count=int(data["view_count"]) if data.get("view_count") is not None else None,
+            description=data.get("description"),
+        )
 
 
 class FormatInfo(BaseModel):
@@ -45,6 +57,16 @@ class DownloadStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class SummarizeStatus(str, Enum):
+    """AI summarization task status."""
+    
+    PENDING = "pending"
+    EXTRACTING = "extracting"  # Extracting subtitle
+    ANALYZING = "analyzing"    # AI analyzing
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class DownloadItemStatus(BaseModel):
@@ -105,3 +127,86 @@ class ErrorResponse(BaseModel):
     
     error: str = Field(..., description="Error message")
     detail: Optional[str] = Field(None, description="Detailed error information")
+
+
+# ==================== AI Summarization Schemas ====================
+
+class SummarizeRequest(BaseModel):
+    """Request to create AI summarization task."""
+    
+    video_url: str = Field(..., description="Video URL to summarize")
+    platform: str = Field("auto", description="Platform: bilibili, douyin, youtube, or auto-detect")
+
+
+class SummarizeResponse(BaseModel):
+    """Response for summarization task creation."""
+    
+    task_id: str = Field(..., description="Task ID for tracking")
+    status: SummarizeStatus = Field(..., description="Task status")
+    message: str = Field("Summarization task created")
+
+
+class SubtitleEntry(BaseModel):
+    """Single subtitle entry with timestamp."""
+    
+    start: str = Field(..., description="Start time (HH:MM:SS or MM:SS)")
+    end: str = Field(..., description="End time")
+    text: str = Field(..., description="Subtitle text")
+
+
+class ChapterInfo(BaseModel):
+    """Video chapter with timestamp."""
+    
+    time: str = Field(..., description="Chapter start time")
+    title: str = Field(..., description="Chapter title")
+
+
+class MindMapNode(BaseModel):
+    """Mind map node structure."""
+    
+    name: str = Field(..., description="Node name")
+    children: Optional[list["MindMapNode"]] = Field(None, description="Child nodes")
+
+
+class MindMapData(BaseModel):
+    """Complete mind map data."""
+    
+    title: str = Field(..., description="Mind map title")
+    children: list[MindMapNode] = Field(default_factory=list, description="Root children")
+
+
+class SummarizeResultResponse(BaseModel):
+    """Response with full summarization results."""
+    
+    task_id: str = Field(..., description="Task ID")
+    status: SummarizeStatus = Field(..., description="Task status")
+    video_info: VideoInfo = Field(..., description="Video information")
+    subtitle: str = Field("", description="Full subtitle text")
+    subtitle_entries: list[SubtitleEntry] = Field(default_factory=list, description="Timed subtitle entries")
+    summary: str = Field("", description="AI-generated summary (~200 words)")
+    chapters: list[ChapterInfo] = Field(default_factory=list, description="Video chapters")
+    mindmap: Optional[MindMapData] = Field(None, description="Mind map structure")
+    created_at: datetime = Field(..., description="Task creation time")
+    completed_at: Optional[datetime] = Field(None, description="Completion time")
+    error: Optional[str] = Field(None, description="Error message if failed")
+
+
+class ChatMessage(BaseModel):
+    """Single chat message."""
+    
+    role: str = Field(..., description="Message role: user or assistant")
+    content: str = Field(..., description="Message content")
+
+
+class ChatRequest(BaseModel):
+    """Request to ask question about video."""
+    
+    question: str = Field(..., description="User question")
+
+
+class ChatResponse(BaseModel):
+    """Response to video question."""
+    
+    answer: str = Field(..., description="AI answer")
+    context: Optional[str] = Field(None, description="Relevant subtitle context")
+    chat_history: list[ChatMessage] = Field(default_factory=list, description="Full chat history")

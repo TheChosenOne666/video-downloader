@@ -5,6 +5,7 @@ import { getVideoInfo, startDownload, getTaskStatus } from '../services/api';
 interface AppState {
   page: PageType;
   urls: string[];
+  videoUrl: string | null;  // Add this
   videoInfos: VideoInfo[];
   selectedFormat: string;
   taskId: string | null;
@@ -17,7 +18,9 @@ interface AppState {
 
 interface AppContextType extends AppState {
   setPage: (page: PageType) => void;
+  goToSummarize: () => void;
   setUrls: (urls: string[]) => void;
+  setVideoUrl: (url: string | null) => void;
   setSelectedFormat: (format: string) => void;
   checkUrls: () => Promise<void>;
   startDownloading: () => Promise<void>;
@@ -28,6 +31,7 @@ interface AppContextType extends AppState {
 const initialState: AppState = {
   page: 'home',
   urls: [],
+  videoUrl: null,  // Add this
   videoInfos: [],
   selectedFormat: 'best',
   taskId: null,
@@ -47,8 +51,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, page, error: null }));
   }, []);
 
+  const goToSummarize = useCallback(() => {
+    // Use the first URL as the video URL for summarization
+    const videoUrl = state.urls[0] || null;
+    setState(prev => ({ ...prev, page: 'summarize', videoUrl, error: null }));
+  }, [state.urls]);
+
   const setUrls = useCallback((urls: string[]) => {
     setState(prev => ({ ...prev, urls, videoInfos: [] }));
+  }, []);
+
+  const setVideoUrl = useCallback((url: string | null) => {
+    setState(prev => ({ ...prev, videoUrl: url }));
   }, []);
 
   const setSelectedFormat = useCallback((format: string) => {
@@ -196,7 +210,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       ...state,
       setPage,
+      goToSummarize,
       setUrls,
+      setVideoUrl,
       setSelectedFormat,
       checkUrls,
       startDownloading,

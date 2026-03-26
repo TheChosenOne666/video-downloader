@@ -58,4 +58,4 @@ export interface VideoStatus {
   error?: string;
 }
 
-export type PageType = 'home' | 'progress' | 'complete';
+export type PageType = 'home' | 'progress' | 'complete' | 'summarize';

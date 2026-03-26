@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     auto_cleanup: bool = True
     cleanup_after_hours: int = 24
     
+    # AI Summarization settings - 火山引擎 Kimi
+    volcengine_api_key: str = ""
+    volcengine_model: str = "kimi-k2"  # or kimi-k2-preview
+    volcengine_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
+    
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

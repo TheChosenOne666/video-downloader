@@ -7,7 +7,7 @@ import FeatureCards from '../components/FeatureCard';
 import VideoPreview from '../components/VideoPreview';
 
 export default function HomePage() {
-  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading } = useApp();
+  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize } = useApp();
   const [pendingDownload, setPendingDownload] = useState(false);
 
   useEffect(() => {
@@ -25,6 +25,9 @@ export default function HomePage() {
       setPendingDownload(true);
     }
   };
+
+  // 检查是否解析完成（有视频信息）
+  const hasVideoInfo = videoInfos.length > 0;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -104,6 +107,25 @@ export default function HomePage() {
               )}
             </button>
           </div>
+
+          {/* AI Summary Button - Only enabled after parsing */}
+          {hasVideoInfo && (
+            <div className="mt-4">
+              <button
+                onClick={goToSummarize}
+                disabled={!hasVideoInfo || checkingUrls}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                AI 视频总结
+              </button>
+              <p className="text-xs text-gray-500 text-center mt-2">
+                基于 AI 分析视频内容，生成摘要、字幕、思维导图和智能问答
+              </p>
+            </div>
+          )}
 
           {videoInfos.length > 0 && (
             <div className="mt-6 p-4 bg-gold/10 rounded-xl border border-gold/20">

@@ -2,6 +2,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import HomePage from './pages/HomePage';
 import ProgressPage from './pages/ProgressPage';
 import CompletePage from './pages/CompletePage';
+import SummarizePage from './pages/SummarizePage';
 
 function AppContent() {
   const { page } = useApp();
@@ -11,6 +12,8 @@ function AppContent() {
       return <ProgressPage />;
     case 'complete':
       return <CompletePage />;
+    case 'summarize':
+      return <SummarizePage />;
     default:
       return <HomePage />;
   }
