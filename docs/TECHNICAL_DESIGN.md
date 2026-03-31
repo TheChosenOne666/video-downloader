@@ -34,7 +34,9 @@ video-downloader/
 ├── backend/
 │   ├── app/
 │   │   ├── api/
-│   │   │   └── download.py          # API 路由（图片代理、下载端点）
+│   │   │   ├── download.py          # API 路由（图片代理、下载端点）
+│   │   │   ├── summarize.py         # AI 总结 API（SSE 流式）
+│   │   │   └── subtitle.py          # 字幕生成 API
 │   │   ├── core/
 │   │   │   └── config.py            # 配置管理
 │   │   ├── models/
@@ -42,19 +44,30 @@ video-downloader/
 │   │   ├── services/
 │   │   │   ├── downloader.py        # yt-dlp 下载服务
 │   │   │   ├── douyin_downloader.py # 抖音专用下载器 v10
-│   │   │   └── task_manager.py      # 任务管理器
-│   │   └── main.py                  # FastAPI 应用入口
+│   │   │   ├── task_manager.py      # 任务管理器
+│   │   │   ├── ai_summarizer.py     # AI 总结服务
+│   │   │   ├── subtitle_extractor.py# 字幕提取服务
+│   │   │   ├── whisper_subtitle_generator.py # Whisper 语音识别
+│   │   │   └── subtitle_hardcoder.py# FFmpeg 字幕烧录
+│   │   └── main.py                  # FastAPI 应用入口（含 WebSocket）
 │   ├── downloads/                   # 下载文件存储目录
 │   ├── venv/                        # Python 虚拟环境
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
 │   │   ├── components/              # UI 组件
+│   │   │   ├── DownloadModeSelector.tsx # 下载模式选择
+│   │   │   └── MindmapGraph.tsx     # 思维导图渲染组件
 │   │   ├── context/
 │   │   │   └── AppContext.tsx       # 全局状态管理（轮询逻辑）
-│   │   ├── pages/                   # 页面组件
+│   │   ├── pages/
+│   │   │   ├── HomePage.tsx         # 首页
+│   │   │   ├── ProgressPage.tsx     # 下载进度页
+│   │   │   ├── CompletePage.tsx     # 完成页
+│   │   │   ├── SummarizePage.tsx    # AI 总结页
+│   │   │   └── SubtitleGenerationPage.tsx # 字幕生成页
 │   │   ├── services/
-│   │   │   └── api.ts               # API 客户端
+│   │   │   └── api.ts               # API 客户端（含 WebSocket）
 │   │   ├── types/                   # TypeScript 类型定义
 │   │   └── main.tsx
 │   ├── tailwind.config.js           # Tailwind 配置
