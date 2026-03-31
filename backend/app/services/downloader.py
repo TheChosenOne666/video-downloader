@@ -119,7 +119,9 @@ class VideoDownloader:
         
         if audio_only:
             opts["format"] = "bestaudio/best"
-        elif format_id:
+        elif format_id and format_id not in ('best', ''):
+            # 只有明确的 format_id 才直接传给 yt-dlp
+            # 'best' 是前端的选择器概念，不是 yt-dlp 的 format
             opts["format"] = format_id
         else:
             # 方案：分别下载视频和音频轨道，不合并

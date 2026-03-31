@@ -1,14 +1,15 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
 import type { PageType, VideoInfo, DownloadTask } from '../types';
-import { getVideoInfo, startDownload, getTaskStatus } from '../services/api';
+import { getVideoInfo, startDownload, getDownloadUrl } from '../services/api';
 
 interface AppState {
   page: PageType;
+  inputValue: string;
   urls: string[];
   videoUrl: string | null;
   videoInfos: VideoInfo[];
   selectedFormat: string;
-  downloadMode: 'original' | 'subtitled';  // NEW: 下载模式
+  downloadMode: 'original' | 'subtitled';
   taskId: string | null;
   tasks: DownloadTask[];
   completedFiles: { filename: string; title?: string }[];
@@ -21,22 +22,25 @@ interface AppContextType extends AppState {
   setPage: (page: PageType) => void;
   goToSummarize: () => void;
   setUrls: (urls: string[]) => void;
+  setInputValue: (value: string) => void;
   setVideoUrl: (url: string | null) => void;
   setSelectedFormat: (format: string) => void;
-  setDownloadMode: (mode: 'original' | 'subtitled') => void;  // NEW
+  setDownloadMode: (mode: 'original' | 'subtitled') => void;
   checkUrls: () => Promise<void>;
   startDownloading: () => Promise<void>;
-  fetchStatus: () => Promise<void>;
+  updateTasks: (tasks: DownloadTask[], completedFiles: { filename: string; title?: string }[]) => void;
+  downloadFile: (filename: string) => void;
   reset: () => void;
 }
 
 const initialState: AppState = {
   page: 'home',
+  inputValue: '',
   urls: [],
   videoUrl: null,
   videoInfos: [],
   selectedFormat: 'best',
-  downloadMode: 'original',  // NEW
+  downloadMode: 'original',
   taskId: null,
   tasks: [],
   completedFiles: [],
@@ -49,19 +53,27 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
+  // 用 ref 存最新值，避免闭包陷阱
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const setPage = useCallback((page: PageType) => {
     setState(prev => ({ ...prev, page, error: null }));
   }, []);
 
   const goToSummarize = useCallback(() => {
-    // Use the first URL as the video URL for summarization
-    const videoUrl = state.urls[0] || null;
-    setState(prev => ({ ...prev, page: 'summarize', videoUrl, error: null }));
-  }, [state.urls]);
+    setState(prev => {
+      const videoUrl = prev.urls[0] || null;
+      return { ...prev, page: 'summarize', videoUrl, error: null };
+    });
+  }, []);
 
   const setUrls = useCallback((urls: string[]) => {
     setState(prev => ({ ...prev, urls, videoInfos: [] }));
+  }, []);
+
+  const setInputValue = useCallback((value: string) => {
+    setState(prev => ({ ...prev, inputValue: value }));
   }, []);
 
   const setVideoUrl = useCallback((url: string | null) => {
@@ -76,137 +88,98 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, downloadMode: mode }));
   }, []);
 
+  /**
+   * checkUrls: 从 stateRef 读取 urls（用户已添加的链接）。
+   */
   const checkUrls = useCallback(async () => {
-    if (state.urls.length === 0) {
-      setState(prev => ({ ...prev, error: 'Please enter at least one URL' }));
+    const current = stateRef.current;
+    const urlsToCheck = current.urls;
+
+    if (urlsToCheck.length === 0) {
+      setState(prev => ({ ...prev, error: '请先添加视频链接' }));
       return;
     }
 
-    setState(prev => ({ ...prev, checkingUrls: true, error: null }));
+    // 开始检查
+    setState(prev => ({ ...prev, checkingUrls: true, error: null, videoInfos: [] }));
+
     try {
-      const infos = await getVideoInfo(state.urls);
+      const infos = await getVideoInfo(urlsToCheck);
       setState(prev => ({ ...prev, videoInfos: infos, checkingUrls: false }));
     } catch (err) {
-      setState(prev => ({ 
-        ...prev, 
-        error: err instanceof Error ? err.message : 'Failed to fetch video info',
-        checkingUrls: false 
+      setState(prev => ({
+        ...prev,
+        error: err instanceof Error ? err.message : '无法解析视频链接',
+        checkingUrls: false,
       }));
     }
-  }, [state.urls]);
+  }, []); // 无依赖，全从 ref 读取
 
+  /**
+   * startDownloading: 从 ref 读取最新 state，避免闭包过期。
+   * 立即跳转到 progress 页面，然后后台调用 API。
+   */
   const startDownloading = useCallback(async () => {
-    if (state.urls.length === 0) return;
+    const current = stateRef.current;
 
-    setState(prev => ({ 
-      ...prev, 
-      loading: true, 
+    if (current.urls.length === 0) {
+      setState(prev => ({ ...prev, error: '没有可下载的视频链接' }));
+      return;
+    }
+
+    // 立即跳转到进度页面
+    setState(prev => ({
+      ...prev,
+      loading: true,
       error: null,
       page: 'progress',
+      tasks: [],
+      completedFiles: [],
     }));
 
     try {
-      const response = await startDownload(state.urls, state.selectedFormat, state.downloadMode === 'subtitled');
-      
-      setState(prev => ({ 
-        ...prev, 
-        taskId: response.taskId, 
-        loading: false,
-        tasks: state.urls.map((url, i) => ({
-          taskId: response.taskId,
-          url,
-          title: state.videoInfos[i]?.title || '',
-          status: 'downloading' as const,
-          progress: 0,
-        })),
-      }));
+      // format 映射: 'best' 传 null 让后端自动选择，其他直接传
+      const formatParam = current.selectedFormat === 'best' ? null : current.selectedFormat;
+      const isAudioOnly = current.selectedFormat === 'audio';
 
-      // 启动轮询 - 使用 response.taskId 和 state.urls.length 避免闭包问题
-      const currentTaskId = response.taskId;
-      const expectedCount = state.urls.length;
-      
-      const pollInterval = setInterval(async () => {
-        try {
-          const status = await getTaskStatus(currentTaskId);
-          
-          setState(prev => ({
-            ...prev,
-            tasks: prev.tasks.map((task, i) => {
-              const video = status.videos[i];
-              if (!video) return task;
-              return {
-                ...task,
-                title: video.title || task.title,
-                status: video.status as DownloadTask['status'],
-                progress: video.progress || 0,
-                filename: video.filename,
-                error: video.error,
-              };
-            }),
-          }));
+      const response = await startDownload(
+        current.urls,
+        formatParam || undefined,
+        current.downloadMode === 'subtitled',
+        isAudioOnly,
+      );
 
-          // 检查完成
-          if (status.status === 'completed' || status.status === 'failed' || status.completed >= expectedCount) {
-            clearInterval(pollInterval);
-            
-            setState(prev => ({
-              ...prev,
-              page: 'complete',
-              completedFiles: status.videos
-                .filter(v => v.status === 'completed' && v.filename)
-                .map(v => ({ filename: v.filename!, title: v.title })),
-            }));
-          }
-        } catch (err) {
-          console.error('Poll error:', err);
-        }
-      }, 500);
-
-      (window as any).downloadInterval = pollInterval;
-      
-    } catch (err) {
-      setState(prev => ({ 
-        ...prev, 
-        error: err instanceof Error ? err.message : 'Failed to start download',
-        loading: false,
-      }));
-    }
-  }, [state.urls, state.selectedFormat, state.videoInfos]);
-
-  const fetchStatus = useCallback(async () => {
-    if (!state.taskId) return;
-
-    try {
-      const status = await getTaskStatus(state.taskId);
-      
       setState(prev => ({
         ...prev,
-        tasks: prev.tasks.map((task, i) => {
-          const video = status.videos[i];
-          if (!video) return task;
-          return {
-            ...task,
-            title: video.title || task.title,
-            status: video.status as DownloadTask['status'],
-            progress: video.progress || 0,
-            filename: video.filename,
-            error: video.error,
-          };
-        }),
-        completedFiles: status.videos
-          .filter(v => v.status === 'completed' && v.filename)
-          .map(v => ({ filename: v.filename!, title: v.title })),
+        taskId: response.taskId,
+        loading: false,
       }));
+
+      console.log('[AppContext] Download task created:', response.taskId);
     } catch (err) {
-      console.error('Fetch status error:', err);
+      console.error('[AppContext] Download error:', err);
+      setState(prev => ({
+        ...prev,
+        error: err instanceof Error ? err.message : '下载启动失败',
+        loading: false,
+        page: 'home',
+      }));
     }
-  }, [state.taskId]);
+  }, []); // 无依赖！全从 ref 读取
+
+  const updateTasks = useCallback((tasks: DownloadTask[], completedFiles: { filename: string; title?: string }[]) => {
+    setState(prev => ({ ...prev, tasks, completedFiles }));
+  }, []);
+
+  const downloadFile = useCallback((filename: string) => {
+    const taskId = stateRef.current.taskId;
+    if (!taskId) return;
+    const url = getDownloadUrl(taskId, filename);
+    console.log('[AppContext] Downloading file:', url);
+    window.open(url, '_blank');
+  }, []);
 
   const reset = useCallback(() => {
-    if ((window as any).downloadInterval) {
-      clearInterval((window as any).downloadInterval);
-      delete (window as any).downloadInterval;
-    }
     setState(initialState);
   }, []);
 
@@ -216,12 +189,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPage,
       goToSummarize,
       setUrls,
+      setInputValue,
       setVideoUrl,
       setSelectedFormat,
       setDownloadMode,
       checkUrls,
       startDownloading,
-      fetchStatus,
+      updateTasks,
+      downloadFile,
       reset,
     }}>
       {children}

@@ -27,6 +27,7 @@ export interface DownloadTask {
   progress: number;
   speed?: string;
   eta?: string;
+  filename?: string;
   error?: string;
 }
 

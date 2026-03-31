@@ -285,7 +285,7 @@ export default function SummarizePage() {
       const html2canvas = (await import('html2canvas')).default;
       const element = mindmapRef.current;
       const canvas = await html2canvas(element, {
-        backgroundColor: '#1e293b',
+        backgroundColor: '#f8fafc',
         scale: 2,
       });
 
@@ -312,10 +312,10 @@ export default function SummarizePage() {
       let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
   <style>
-    .node { fill: #334155; stroke: #4ade80; stroke-width: 2; }
-    .text { fill: #f1f5f9; font-family: sans-serif; font-size: 14px; }
+    .node { fill: #f1f5f9; stroke: #3b82f6; stroke-width: 2; }
+    .text { fill: #1e293b; font-family: sans-serif; font-size: 14px; }
   </style>
-  <rect width="100%" height="100%" fill="#1e293b"/>
+  <rect width="100%" height="100%" fill="#f8fafc"/>
 `;
 
       let y = 40;
@@ -352,12 +352,12 @@ export default function SummarizePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen flex flex-col">
         <Header />
-        <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+        <div className="flex items-center justify-center flex-1">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-slate-400">加载视频信息中...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--color-primary)' }}></div>
+            <p style={{ color: 'var(--color-text-muted)' }}>加载视频信息中...</p>
           </div>
         </div>
       </div>
@@ -366,12 +366,12 @@ export default function SummarizePage() {
 
   if (error || !videoInfo) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen flex flex-col">
         <Header />
-        <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+        <div className="flex items-center justify-center flex-1">
           <div className="text-center">
-            <p className="text-red-400 mb-4">{error || '无法加载视频信息'}</p>
-            <button onClick={() => window.history.back()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <p className="mb-4" style={{ color: 'var(--color-error)' }}>{error || '无法加载视频信息'}</p>
+            <button onClick={() => window.history.back()} className="btn-primary">
               返回
             </button>
           </div>
@@ -388,24 +388,24 @@ export default function SummarizePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen flex flex-col">
       <Header />
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="flex-1 flex flex-col px-4 py-4">
         {/* 视频信息 */}
-        <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 mb-6 border border-slate-700">
+        <div className="glass-card p-4 mb-4">
           <div className="flex gap-4">
             {videoInfo.thumbnail ? (
               <img src={videoInfo.thumbnail} alt={videoInfo.title} className="w-32 h-20 object-cover rounded-lg"
                 onError={(e) => (e.target as HTMLImageElement).style.display = 'none'} />
             ) : (
-              <div className="w-32 h-20 bg-slate-700 rounded-lg flex items-center justify-center">
-                <span className="text-slate-500">暂无封面</span>
+              <div className="w-32 h-20 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--color-surface-lighter)' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>暂无封面</span>
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-bold text-white mb-1 truncate">{videoInfo.title || '未知标题'}</h1>
-              <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+              <h1 className="text-lg font-bold mb-1 truncate" style={{ color: 'var(--color-text-primary)' }}>{videoInfo.title || '未知标题'}</h1>
+              <div className="flex flex-wrap gap-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 {videoInfo.uploader && <span>👤 {videoInfo.uploader}</span>}
                 {videoInfo.duration && <span>⏱️ {Math.floor(videoInfo.duration / 60)}分{videoInfo.duration % 60}秒</span>}
                 {videoInfo.view_count && <span>👁️ {videoInfo.view_count.toLocaleString()}</span>}
@@ -415,13 +415,15 @@ export default function SummarizePage() {
         </div>
 
         {/* Tab 导航 */}
-        <div className="bg-slate-800/50 backdrop-blur rounded-xl p-1 mb-6 border border-slate-700">
+        <div className="glass-card p-1 mb-4">
           <div className="flex gap-1">
             {tabs.map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
-                  activeTab === tab.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                }`}>
+                className="flex-1 px-4 py-3 rounded-lg font-medium transition-all"
+                style={{ 
+                  backgroundColor: activeTab === tab.id ? 'var(--color-primary)' : 'transparent',
+                  color: activeTab === tab.id ? '#ffffff' : 'var(--color-text-muted)'
+                }}>
                 {tab.label}
               </button>
             ))}
@@ -429,270 +431,125 @@ export default function SummarizePage() {
         </div>
 
         {/* Tab 内容 */}
-        <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700 min-h-[500px]">
-          {/* 摘要 Tab */}
+        <div className="glass-card p-4 flex-1 overflow-auto">
           {activeTab === 'summary' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">📝 视频摘要</h2>
-                <button onClick={handleGenerateSummary} disabled={summaryCard.status === 'loading'}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
+                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>📝 视频摘要</h2>
+                <button onClick={handleGenerateSummary} disabled={summaryCard.status === 'loading'} className="btn-primary">
                   {summaryCard.status === 'loading' ? '生成中...' : '生成摘要'}
                 </button>
               </div>
-
-              <div className="bg-slate-900/50 rounded-lg p-6 min-h-[400px] overflow-auto">
+              <div className="rounded-lg p-6 min-h-[400px]" style={{ backgroundColor: 'var(--color-surface-light)' }}>
                 {summaryCard.status === 'idle' && (
-                  <div className="flex flex-col items-center justify-center h-[400px] text-slate-500">
-                    <svg className="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                  <div className="flex flex-col items-center justify-center h-[400px]" style={{ color: 'var(--color-text-muted)' }}>
                     <p>点击「生成摘要」获取视频内容总结</p>
-                    <p className="text-sm mt-2">基于 AI 分析视频字幕，自动生成结构化摘要</p>
                   </div>
                 )}
-
                 {summaryCard.status === 'loading' && (
                   <div className="flex items-center justify-center h-[400px]">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3"></div>
-                      <p className="text-slate-400">AI 正在分析视频内容...</p>
-                    </div>
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: 'var(--color-primary)' }}></div>
                   </div>
                 )}
-
                 {summaryCard.status === 'done' && (
-                  <div className="prose prose-invert prose-blue max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {summaryCard.content}
-                    </ReactMarkdown>
+                  <div style={{ color: 'var(--color-text-primary)' }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaryCard.content}</ReactMarkdown>
                   </div>
                 )}
-
                 {summaryCard.status === 'error' && (
-                  <div className="flex flex-col items-center justify-center h-[400px] text-red-400">
-                    <p className="font-semibold">生成失败</p>
-                    <p className="text-sm mt-2">{summaryCard.error}</p>
-                  </div>
+                  <div style={{ color: 'var(--color-error)' }}>生成失败: {summaryCard.error}</div>
                 )}
               </div>
-
-              {summaryCard.content && (
-                <div className="flex gap-2 justify-end">
-                  <button onClick={() => navigator.clipboard.writeText(summaryCard.content)}
-                    className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition">
-                    📋 复制内容
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
-          {/* 标题信息 Tab */}
           {activeTab === 'titleinfo' && (
             <div className="space-y-4">
-              <h2 className="text-xl font-bold text-white">📄 标题信息</h2>
-
-              <div className="bg-slate-900/50 rounded-lg p-6 space-y-4">
+              <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>📄 标题信息</h2>
+              <div className="rounded-lg p-6 space-y-4" style={{ backgroundColor: 'var(--color-surface-light)' }}>
                 <div>
-                  <span className="text-xs text-slate-500 uppercase tracking-wide">视频标题</span>
-                  <p className="text-white text-lg font-medium mt-1">{videoInfo.title || '未知标题'}</p>
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>视频标题</span>
+                  <p className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{videoInfo.title}</p>
                 </div>
-
                 {videoInfo.uploader && (
                   <div>
-                    <span className="text-xs text-slate-500 uppercase tracking-wide">上传者</span>
-                    <p className="text-slate-300 mt-1">👤 {videoInfo.uploader}</p>
+                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>上传者</span>
+                    <p style={{ color: 'var(--color-text-secondary)' }}>👤 {videoInfo.uploader}</p>
                   </div>
                 )}
-
-                {videoInfo.duration != null && videoInfo.duration > 0 && (
-                  <div>
-                    <span className="text-xs text-slate-500 uppercase tracking-wide">时长</span>
-                    <p className="text-slate-300 mt-1">⏱️ {Math.floor(videoInfo.duration / 60)}分{videoInfo.duration % 60}秒</p>
-                  </div>
-                )}
-
-                {videoInfo.view_count != null && (
-                  <div>
-                    <span className="text-xs text-slate-500 uppercase tracking-wide">播放量</span>
-                    <p className="text-slate-300 mt-1">👁️ {videoInfo.view_count.toLocaleString()}</p>
-                  </div>
-                )}
-
-                {videoInfo.description && (
-                  <div>
-                    <span className="text-xs text-slate-500 uppercase tracking-wide">视频描述</span>
-                    <p className="text-slate-300 mt-1 whitespace-pre-wrap">{videoInfo.description}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => navigator.clipboard.writeText(videoInfo.title || '')}
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition">
-                  📋 复制标题
-                </button>
               </div>
             </div>
           )}
 
-          {/* 思维导图 Tab */}
           {activeTab === 'mindmap' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">🧠 思维导图</h2>
+                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>🧠 思维导图</h2>
                 <div className="flex gap-2">
-                  <button onClick={() => setIsMindmapFullscreen(true)} disabled={mindmapCard.status !== 'done'}
-                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition" title="全屏查看">
-                    🔍 全屏
-                  </button>
-                  <button onClick={handleGenerateMindmap} disabled={mindmapCard.status === 'loading'}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
+                  <button onClick={() => setIsMindmapFullscreen(true)} disabled={mindmapCard.status !== 'done'} className="btn-secondary">🔍 全屏</button>
+                  <button onClick={handleGenerateMindmap} disabled={mindmapCard.status === 'loading'} className="btn-primary">
                     {mindmapCard.status === 'loading' ? '生成中...' : '生成导图'}
                   </button>
                 </div>
               </div>
-
-              <div className="bg-slate-900/50 rounded-lg p-6 min-h-[400px] overflow-auto">
+              <div className="rounded-lg p-6 min-h-[400px]" style={{ backgroundColor: 'var(--color-surface-light)' }}>
                 {mindmapCard.status === 'idle' && (
-                  <div className="flex flex-col items-center justify-center h-[400px] text-slate-500">
-                    <svg className="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
+                  <div className="flex flex-col items-center justify-center h-[400px]" style={{ color: 'var(--color-text-muted)' }}>
                     <p>点击「生成导图」获取视频知识结构</p>
-                    <p className="text-sm mt-2">以思维导图形式展示视频核心知识点</p>
                   </div>
                 )}
-
-                {mindmapCard.status === 'loading' && (
-                  <div className="flex items-center justify-center h-[400px]">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3"></div>
-                      <p className="text-slate-400">AI 正在生成思维导图...</p>
-                    </div>
-                  </div>
-                )}
-
-                {mindmapCard.status === 'done' && (
-                  <div ref={mindmapRef} className="mindmap-container">
-                    <MindmapGraph content={mindmapCard.content} />
-                  </div>
-                )}
-
-                {mindmapCard.status === 'error' && (
-                  <div className="flex flex-col items-center justify-center h-[400px] text-red-400">
-                    <p className="font-semibold">生成失败</p>
-                    <p className="text-sm mt-2">{mindmapCard.error}</p>
-                  </div>
-                )}
+                {mindmapCard.status === 'done' && <div ref={mindmapRef}><MindmapGraph content={mindmapCard.content} /></div>}
               </div>
-
               {mindmapCard.status === 'done' && (
                 <div className="flex gap-2 justify-end">
-                  <button onClick={exportMindmapPNG}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-                    📷 下载 PNG
-                  </button>
-                  <button onClick={exportMindmapSVG}
-                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
-                    📐 下载 SVG
-                  </button>
+                  <button onClick={exportMindmapPNG} className="btn-primary" style={{ background: 'linear-gradient(135deg, var(--color-success) 0%, #34d399 100%)' }}>📷 PNG</button>
+                  <button onClick={exportMindmapSVG} className="btn-primary" style={{ background: 'linear-gradient(135deg, var(--color-warning) 0%, #fbbf24 100%)' }}>📐 SVG</button>
                 </div>
               )}
             </div>
           )}
 
-          {/* 问答 Tab */}
           {activeTab === 'chat' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">💬 AI 智能问答</h2>
-                <button onClick={() => { setChatHistory([]); setChatCard({ status: 'idle', content: '' }); }}
-                  disabled={chatHistory.length === 0}
-                  className="px-3 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 disabled:opacity-50 transition text-sm">
-                  🗑️ 清空对话
-                </button>
+                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>💬 AI 问答</h2>
+                <button onClick={() => { setChatHistory([]); setChatCard({ status: 'idle', content: '' }); }} disabled={chatHistory.length === 0} className="btn-secondary">🗑️ 清空</button>
               </div>
-
-              <div className="bg-slate-900/50 rounded-lg p-4 h-[350px] overflow-y-auto mb-4">
+              <div className="rounded-lg p-4 h-[300px] overflow-y-auto" style={{ backgroundColor: 'var(--color-surface-light)' }}>
                 {chatHistory.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                    <svg className="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
+                  <div className="flex flex-col items-center justify-center h-full" style={{ color: 'var(--color-text-muted)' }}>
                     <p>开始和 AI 讨论这个视频吧</p>
-                    <p className="text-sm mt-2">可以问任何关于视频内容的问题</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {chatHistory.map((msg, idx) => (
                       <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] p-4 rounded-2xl ${
-                          msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-slate-700 text-slate-100 rounded-bl-sm'
-                        }`}>
-                          <p className="text-xs opacity-70 mb-1">{msg.role === 'user' ? '你' : 'AI'}</p>
-                          <div className="prose prose-sm prose-invert max-w-none">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                          </div>
+                        <div className="max-w-[80%] p-3 rounded-xl" style={{ backgroundColor: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-surface-dark)', color: msg.role === 'user' ? '#fff' : 'var(--color-text-primary)' }}>
+                          <p className="text-xs opacity-70">{msg.role === 'user' ? '你' : 'AI'}</p>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                         </div>
                       </div>
                     ))}
-
-                    {chatCard.status === 'loading' && (
-                      <div className="flex justify-start">
-                        <div className="bg-slate-700 text-slate-100 p-4 rounded-2xl rounded-bl-sm">
-                          <p className="text-xs opacity-70 mb-1">AI</p>
-                          <p className="text-slate-400 animate-pulse">正在思考...</p>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
-
               <div className="flex gap-2">
-                <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendChat()}
-                  placeholder="输入你的问题..."
-                  className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition"
-                  disabled={chatCard.status === 'loading'} />
-                <button onClick={handleSendChat} disabled={chatCard.status === 'loading' || !chatInput.trim()}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium">
-                  {chatCard.status === 'loading' ? '...' : '发送'}
-                </button>
+                <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendChat()} placeholder="输入你的问题..." className="input-glow flex-1" disabled={chatCard.status === 'loading'} />
+                <button onClick={handleSendChat} disabled={chatCard.status === 'loading' || !chatInput.trim()} className="btn-primary">{chatCard.status === 'loading' ? '...' : '发送'}</button>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* 全屏思维导图 Modal */}
       {isMindmapFullscreen && (
         <div className="fixed inset-0 bg-black/90 z-50 flex flex-col" onClick={() => setIsMindmapFullscreen(false)}>
-          <div className="flex items-center justify-between p-4 bg-slate-800">
-            <h3 className="text-white font-bold text-lg">🧠 思维导图 - 全屏</h3>
-            <button onClick={() => setIsMindmapFullscreen(false)}
-              className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition">
-              ✕ 关闭
-            </button>
+          <div className="flex items-center justify-between p-4" style={{ backgroundColor: 'var(--color-surface)' }}>
+            <h3 className="font-bold" style={{ color: 'var(--color-text-primary)' }}>🧠 思维导图</h3>
+            <button onClick={() => setIsMindmapFullscreen(false)} className="btn-secondary">✕ 关闭</button>
           </div>
           <div className="flex-1 p-8 overflow-auto" onClick={(e) => e.stopPropagation()}>
-            {mindmapCard.content && (
-              <div ref={mindmapRef} className="bg-slate-800 rounded-xl p-8 mx-auto max-w-4xl min-h-full">
-                <MindmapGraph content={mindmapCard.content} />
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2 justify-center p-4 bg-slate-800">
-            <button onClick={(e) => { e.stopPropagation(); exportMindmapPNG(); }}
-              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
-              📷 下载 PNG
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); exportMindmapSVG(); }}
-              className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition font-medium">
-              📐 下载 SVG
-            </button>
+            {mindmapCard.content && <div ref={mindmapRef} className="mx-auto max-w-4xl" style={{ backgroundColor: 'var(--color-surface)' }}><MindmapGraph content={mindmapCard.content} /></div>}
           </div>
         </div>
       )}

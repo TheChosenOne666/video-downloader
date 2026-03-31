@@ -18,7 +18,7 @@ export default function FormatSelector() {
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-300">下载格式</label>
+      <label className="block text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>下载格式</label>
       <div className={`grid gap-3 ${formats.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'}`}>
         {formats.map((format) => (
           <button
@@ -27,24 +27,27 @@ export default function FormatSelector() {
             className={`
               relative p-4 rounded-xl border-2 transition-all duration-300 text-left
               ${selectedFormat === format.id 
-                ? 'border-gold bg-gold/10 shadow-glow' 
-                : 'border-surface-lighter bg-surface hover:border-gold/30'}
+                ? 'border-primary bg-primary/5 shadow-lg' 
+                : 'border-transparent hover:border-primary/30'}
             `}
+            style={{ 
+              backgroundColor: selectedFormat === format.id ? 'rgba(59, 130, 246, 0.05)' : 'var(--color-surface-light)',
+              borderColor: selectedFormat === format.id ? 'var(--color-primary)' : 'var(--color-surface-dark)'
+            }}
           >
             {selectedFormat === format.id && (
-              <div className="absolute -top-2 -right-2 w-5 h-5 bg-gold rounded-full flex items-center justify-center">
-                <svg className="w-3 h-3 text-night" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--color-primary)' }}>
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
             )}
             <span className="text-xl mb-2 block">{format.icon}</span>
-            <span className="block font-medium text-sm text-white">{format.label}</span>
-            <span className="block text-xs text-gray-500 mt-1">{format.desc}</span>
+            <span className="block font-medium text-sm" style={{ color: 'var(--color-text-primary)' }}>{format.label}</span>
+            <span className="block text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{format.desc}</span>
           </button>
         ))}
       </div>
     </div>
   );
 }
-

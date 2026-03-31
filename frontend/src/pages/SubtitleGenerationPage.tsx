@@ -40,7 +40,6 @@ export default function SubtitleGenerationPage() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
 
-  // Poll for task status
   useEffect(() => {
     if (!taskId) return;
 
@@ -63,7 +62,7 @@ export default function SubtitleGenerationPage() {
       } catch (err) {
         console.error('Poll error:', err);
       }
-    }, 1000); // Poll every second
+    }, 1000);
 
     return () => clearInterval(pollInterval);
   }, [taskId]);
@@ -117,66 +116,53 @@ export default function SubtitleGenerationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen flex flex-col">
       <Header />
       
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Title */}
+      <div className="max-w-4xl mx-auto px-4 py-8 flex-1">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
+          <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
             🎬 AI 字幕生成
           </h1>
-          <p className="text-slate-400">
+          <p style={{ color: 'var(--color-text-muted)' }}>
             为没有字幕的视频自动生成字幕，支持多语言和格式
           </p>
         </div>
 
-        {/* Input Section */}
         {!taskId && (
-          <div className="bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700">
+          <div className="glass-card p-6 mb-6">
             <div className="space-y-4">
-              {/* Video URL Input */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  视频链接
-                </label>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>视频链接</label>
                 <input
                   type="text"
                   value={videoInput || videoUrl || ''}
                   onChange={(e) => setVideoInput(e.target.value)}
                   placeholder="输入视频链接（B站、抖音、YouTube等）"
-                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="input-glow"
                 />
               </div>
 
-              {/* Language Selection */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  语言
-                </label>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>语言</label>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  className="input-glow"
                 >
                   <option value="zh">中文</option>
                   <option value="en">English</option>
                   <option value="ja">日本語</option>
                   <option value="ko">한국어</option>
-                  <option value="es">Español</option>
-                  <option value="fr">Français</option>
                 </select>
               </div>
 
-              {/* Subtitle Format */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  字幕格式
-                </label>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>字幕格式</label>
                 <select
                   value={subtitleFormat}
                   onChange={(e) => setSubtitleFormat(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  className="input-glow"
                 >
                   <option value="srt">SRT (标准格式)</option>
                   <option value="vtt">WebVTT</option>
@@ -184,45 +170,27 @@ export default function SubtitleGenerationPage() {
                 </select>
               </div>
 
-              {/* Options */}
-              <div className="space-y-3">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={hardcode}
-                    onChange={(e) => setHardcode(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-600 text-blue-500 focus:ring-blue-500"
-                  />
-                  <span className="text-slate-300">
-                    硬编码字幕到视频（重新编码，文件较大）
-                  </span>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={hardcode} onChange={(e) => setHardcode(e.target.checked)} className="w-4 h-4" />
+                  <span style={{ color: 'var(--color-text-secondary)' }}>硬编码字幕到视频（重新编码）</span>
                 </label>
-
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={softSubtitles}
-                    onChange={(e) => setSoftSubtitles(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-600 text-blue-500 focus:ring-blue-500"
-                  />
-                  <span className="text-slate-300">
-                    添加软字幕（MP4格式，可选择显示/隐藏）
-                  </span>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={softSubtitles} onChange={(e) => setSoftSubtitles(e.target.checked)} className="w-4 h-4" />
+                  <span style={{ color: 'var(--color-text-secondary)' }}>添加软字幕（可选择显示/隐藏）</span>
                 </label>
               </div>
 
-              {/* Error Message */}
               {error && (
-                <div className="bg-red-900/20 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
+                <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-error)' }}>
                   {error}
                 </div>
               )}
 
-              {/* Generate Button */}
               <button
                 onClick={handleGenerateSubtitles}
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-slate-600 disabled:to-slate-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100"
+                className="btn-primary w-full"
               >
                 {loading ? '处理中...' : '生成字幕'}
               </button>
@@ -230,21 +198,17 @@ export default function SubtitleGenerationPage() {
           </div>
         )}
 
-        {/* Progress Section */}
         {loading && (
-          <div className="bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700">
+          <div className="glass-card p-6 mb-6">
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-slate-300 font-medium">处理进度</span>
-                <span className="text-blue-400 font-semibold">{Math.round(progress)}%</span>
+                <span style={{ color: 'var(--color-text-secondary)' }}>处理进度</span>
+                <span style={{ color: 'var(--color-primary)' }}>{Math.round(progress)}%</span>
               </div>
-              <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${progress}%` }} />
               </div>
-              <p className="text-slate-400 text-sm">
+              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
                 {progress < 30 && '正在下载视频...'}
                 {progress >= 30 && progress < 60 && '正在提取音频和识别字幕...'}
                 {progress >= 60 && progress < 90 && '正在处理字幕...'}
@@ -254,95 +218,51 @@ export default function SubtitleGenerationPage() {
           </div>
         )}
 
-        {/* Result Section */}
         {result && !loading && (
           <div className="space-y-6">
-            {/* Video Info */}
-            {result.video_info && (
-              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-                <h2 className="text-xl font-bold text-white mb-4">视频信息</h2>
-                <div className="space-y-2">
-                  <p className="text-slate-300">
-                    <span className="font-semibold">标题：</span> {result.video_info.title}
-                  </p>
-                  {result.video_info.uploader && (
-                    <p className="text-slate-300">
-                      <span className="font-semibold">上传者：</span> {result.video_info.uploader}
-                    </p>
-                  )}
-                  {result.video_info.duration && (
-                    <p className="text-slate-300">
-                      <span className="font-semibold">时长：</span>{' '}
-                      {Math.floor(result.video_info.duration / 60)}分{result.video_info.duration % 60}秒
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Status */}
-            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-              <div className="flex items-center space-x-3">
+            <div className="glass-card p-6">
+              <div className="flex items-center gap-3">
                 {result.status === 'completed' && (
                   <>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-green-400 font-semibold">生成成功！</span>
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--color-success)' }}></div>
+                    <span style={{ color: 'var(--color-success)' }}>生成成功！</span>
                   </>
                 )}
                 {result.status === 'failed' && (
                   <>
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <span className="text-red-400 font-semibold">生成失败</span>
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--color-error)' }}></div>
+                    <span style={{ color: 'var(--color-error)' }}>生成失败</span>
                   </>
                 )}
               </div>
               {result.error && (
-                <p className="text-red-300 text-sm mt-2">{result.error}</p>
+                <p className="text-sm mt-2" style={{ color: 'var(--color-error)' }}>{result.error}</p>
               )}
             </div>
 
-            {/* Subtitle Preview */}
-            {result.subtitle_text && (
-              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-                <h2 className="text-xl font-bold text-white mb-4">字幕预览</h2>
-                <div className="bg-slate-900 rounded-lg p-4 max-h-64 overflow-y-auto">
-                  <pre className="text-slate-300 text-sm whitespace-pre-wrap break-words font-mono">
-                    {result.subtitle_text.slice(0, 500)}
-                    {result.subtitle_text.length > 500 && '...'}
-                  </pre>
-                </div>
+            {result.video_info && (
+              <div className="glass-card p-6">
+                <h2 className="font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>视频信息</h2>
+                <p style={{ color: 'var(--color-text-secondary)' }}>{result.video_info.title}</p>
               </div>
             )}
 
-            {/* Download Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {result.subtitle_url && (
-                <button
-                  onClick={downloadSubtitle}
-                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 rounded-lg transition-all duration-200 transform hover:scale-105"
-                >
+                <button onClick={downloadSubtitle} className="btn-primary">
                   📥 下载字幕文件
                 </button>
               )}
               {result.video_with_subtitles_url && (
-                <button
-                  onClick={downloadVideoWithSubtitles}
-                  className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold py-3 rounded-lg transition-all duration-200 transform hover:scale-105"
-                >
+                <button onClick={downloadVideoWithSubtitles} className="btn-primary" style={{ background: 'linear-gradient(135deg, var(--color-purple) 0%, #c084fc 100%)' }}>
                   🎬 下载带字幕视频
                 </button>
               )}
             </div>
 
-            {/* Reset Button */}
             <button
-              onClick={() => {
-                setTaskId(null);
-                setResult(null);
-                setVideoInput('');
-                setError(null);
-              }}
-              className="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-all duration-200"
+              onClick={() => { setTaskId(null); setResult(null); setVideoInput(''); setError(null); }}
+              className="btn-secondary w-full"
             >
               ← 返回
             </button>

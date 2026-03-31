@@ -54,11 +54,11 @@ export default function FeatureCards() {
           onClick={() => setPage(feature.page)}
           className="feature-card group text-left"
         >
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gold/20 to-gold/5 flex items-center justify-center mb-4 text-gold group-hover:scale-110 transition-transform">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mb-4 transition-transform group-hover:scale-110" style={{ color: 'var(--color-primary)' }}>
             {feature.icon}
           </div>
-          <h3 className="font-semibold text-white mb-1">{feature.title}</h3>
-          <p className="text-sm text-gray-500">{feature.desc}</p>
+          <h3 className="font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>{feature.title}</h3>
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{feature.desc}</p>
         </button>
       ))}
     </div>

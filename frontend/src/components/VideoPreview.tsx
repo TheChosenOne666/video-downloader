@@ -8,8 +8,8 @@ export default function VideoPreview() {
 
   return (
     <div className="mt-6 space-y-4">
-      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-        <svg className="w-5 h-5 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+        <svg className="w-5 h-5" style={{ color: 'var(--color-success)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         已解析 {videoInfos.length} 个视频
@@ -19,7 +19,7 @@ export default function VideoPreview() {
         {videoInfos.map((video, index) => (
           <div key={index} className="glass-card p-4 flex gap-4">
             {/* Thumbnail */}
-            <div className="w-32 h-20 bg-surface-lighter rounded-lg overflow-hidden flex-shrink-0">
+            <div className="w-32 h-20 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: 'var(--color-surface-lighter)' }}>
               {video.thumbnail ? (
                 <img
                   src={getProxiedImageUrl(video.thumbnail)}
@@ -30,7 +30,7 @@ export default function VideoPreview() {
                   }}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500">
+                <div className="w-full h-full flex items-center justify-center" style={{ color: 'var(--color-text-muted)' }}>
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
@@ -40,24 +40,24 @@ export default function VideoPreview() {
             
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <h4 className="text-white font-medium truncate mb-2" title={video.title}>
+              <h4 className="font-medium truncate mb-2" style={{ color: 'var(--color-text-primary)' }} title={video.title}>
                 {video.title || '未知标题'}
               </h4>
               
               <div className="space-y-1">
-                <p className="text-sm text-gray-400">
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                   {video.duration && `${Math.floor(video.duration / 60)}:${(video.duration % 60).toString().padStart(2, '0')}`}
                   {video.uploader && ` · ${video.uploader}`}
                   {video.view_count && ` · ${video.view_count.toLocaleString()} 次观看`}
                 </p>
                 
                 {video.description && (
-                  <p className="text-xs text-gray-500 mt-2 line-clamp-2" title={video.description}>
+                  <p className="text-xs mt-2 line-clamp-2" style={{ color: 'var(--color-text-muted)' }} title={video.description}>
                     {video.description}
                   </p>
                 )}
                 
-                <p className="text-xs text-gray-500 mt-1 truncate font-mono" title={urls[index]}>
+                <p className="text-xs mt-1 truncate font-mono" style={{ color: 'var(--color-text-muted)' }} title={urls[index]}>
                   📍 {urls[index].split('?')[0]}
                 </p>
               </div>

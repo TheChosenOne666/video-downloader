@@ -1,16 +1,14 @@
-import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
 export default function URLInput() {
-  const { urls, setUrls, checkingUrls, error } = useApp();
-  const [inputValue, setInputValue] = useState('');
+  const { inputValue, setInputValue, urls, setUrls, checkingUrls, error } = useApp();
 
   const handleAddUrls = () => {
     const newUrls = inputValue
       .split('\n')
       .map(line => line.trim())
       .filter(line => line && !urls.includes(line));
-    
+
     if (newUrls.length > 0) {
       setUrls([...urls, ...newUrls]);
       setInputValue('');
@@ -45,7 +43,7 @@ https://www.bilibili.com/video/xxx"
           <button
             onClick={handleAddUrls}
             disabled={!inputValue.trim() || checkingUrls}
-            className="px-4 py-2 bg-surface-lighter text-sm text-gray-300 rounded-lg hover:bg-gold/20 hover:text-gold transition-all disabled:opacity-50"
+            className="btn-primary px-4 py-2 text-sm"
           >
             添加链接
           </button>
@@ -55,27 +53,30 @@ https://www.bilibili.com/video/xxx"
       {urls.length > 0 && (
         <div className="glass-card p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-gray-400">已添加 {urls.length} 个链接</span>
+            <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>已添加 {urls.length} 个链接</span>
             <button
               onClick={() => setUrls([])}
-              className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+              className="text-xs transition-colors hover:opacity-70"
+              style={{ color: 'var(--color-error)' }}
             >
               清除全部
             </button>
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {urls.map((url, index) => (
-              <div 
+              <div
                 key={index}
-                className="flex items-center gap-3 p-2 bg-surface rounded-lg group"
+                className="flex items-center gap-3 p-2 rounded-lg group"
+                style={{ backgroundColor: 'var(--color-surface-light)' }}
               >
-                <span className="text-xs text-gold w-6">{index + 1}.</span>
-                <span className="flex-1 text-sm text-gray-300 truncate font-mono">
+                <span className="text-xs w-6" style={{ color: 'var(--color-primary)' }}>{index + 1}.</span>
+                <span className="flex-1 text-sm truncate font-mono" style={{ color: 'var(--color-text-secondary)' }}>
                   {url}
                 </span>
                 <button
                   onClick={() => handleRemoveUrl(url)}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400 transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-1 transition-all"
+                  style={{ color: 'var(--color-text-muted)' }}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -88,7 +89,7 @@ https://www.bilibili.com/video/xxx"
       )}
 
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+        <div className="p-4 rounded-xl text-sm" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: 'var(--color-error)' }}>
           {error}
         </div>
       )}

@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import Header from '../components/Header';
 import URLInput from '../components/URLInput';
@@ -9,26 +8,19 @@ import DownloadModeSelector from '../components/DownloadModeSelector';
 
 export default function HomePage() {
   const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize, downloadMode } = useApp();
-  const [pendingDownload, setPendingDownload] = useState(false);
-
-  useEffect(() => {
-    if (pendingDownload && videoInfos.length > 0) {
-      setPendingDownload(false);
-      startDownloading();
-    }
-  }, [videoInfos, pendingDownload, startDownloading]);
-
-  const handleStart = async () => {
-    if (videoInfos.length > 0) {
-      await startDownloading();
-    } else {
-      await checkUrls();
-      setPendingDownload(true);
-    }
-  };
 
   // 检查是否解析完成（有视频信息）
   const hasVideoInfo = videoInfos.length > 0;
+
+  // 解析视频 - 直接读取输入框内容
+  const handleParse = async () => {
+    await checkUrls();
+  };
+
+  // 开始下载
+  const handleStartDownload = async () => {
+    await startDownloading();
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -40,9 +32,9 @@ export default function HomePage() {
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="text-gradient">无法下载？</span>
             <br />
-            <span className="text-white">画质受限？</span>
+            <span style={{ color: 'var(--color-text-primary)' }}>画质受限？</span>
           </h2>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
+          <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
             一键解析全网视频，支持 YouTube、B站、抖音等平台，高清无水印下载
           </p>
         </div>
@@ -56,58 +48,65 @@ export default function HomePage() {
           
           {/* Format Selector - Shows after parsing */}
           {videoInfos.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-surface-lighter space-y-6">
+            <div className="mt-6 pt-6 space-y-6" style={{ borderTop: '1px solid var(--color-surface-dark)' }}>
               <FormatSelector />
               <DownloadModeSelector />
             </div>
           )}
 
+          {/* 按钮区域 - 根据解析状态显示不同按钮 */}
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
-            <button
-              onClick={checkUrls}
-              disabled={urls.length === 0 || checkingUrls}
-              className="btn-secondary flex-1 flex items-center justify-center gap-2"
-            >
-              {checkingUrls ? (
-                <>
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  解析中...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  预览视频
-                </>
-              )}
-            </button>
+            {/* 解析前：只显示「解析视频」按钮 */}
+            {!hasVideoInfo && (
+              <button
+                onClick={handleParse}
+                disabled={urls.length === 0 || checkingUrls}
+                className="btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                {checkingUrls ? (
+                  <>
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    解析中...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    解析视频
+                  </>
+                )}
+              </button>
+            )}
 
-            <button
-              onClick={handleStart}
-              disabled={urls.length === 0 || loading}
-              className="btn-primary flex-1 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  开始下载...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  开始下载 ({urls.length}){downloadMode === 'subtitled' ? ' (带字幕)' : ''}
-                </>
-              )}
-            </button>
+            {/* 解析后：显示「开始下载」按钮 */}
+            {hasVideoInfo && (
+              <button
+                onClick={handleStartDownload}
+                disabled={loading}
+                className="btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    开始下载...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    开始下载 ({urls.length}){downloadMode === 'subtitled' ? ' (带字幕)' : ''}
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {/* AI Summary Button - Only enabled after parsing */}
@@ -116,22 +115,26 @@ export default function HomePage() {
               <button
                 onClick={goToSummarize}
                 disabled={!hasVideoInfo || checkingUrls}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ 
+                  background: 'linear-gradient(135deg, var(--color-purple) 0%, #c084fc 100%)',
+                  color: '#ffffff'
+                }}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
                 AI 视频总结
               </button>
-              <p className="text-xs text-gray-500 text-center mt-2">
+              <p className="text-xs text-center mt-2" style={{ color: 'var(--color-text-muted)' }}>
                 基于 AI 分析视频内容，生成摘要、字幕、思维导图和智能问答
               </p>
             </div>
           )}
 
           {videoInfos.length > 0 && (
-            <div className="mt-6 p-4 bg-gold/10 rounded-xl border border-gold/20">
-              <p className="text-sm text-gold">
+            <div className="mt-6 p-4 rounded-xl" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <p className="text-sm" style={{ color: 'var(--color-primary)' }}>
                 ✓ 已识别 {videoInfos.length} 个视频，点击「开始下载」即可
               </p>
             </div>
@@ -143,48 +146,48 @@ export default function HomePage() {
         {/* Pain Points */}
         <div className="mt-12 grid md:grid-cols-2 gap-6 animate-slide-up">
           <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-              <span className="text-red-400">✕</span> 还在忍受这些？
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+              <span style={{ color: 'var(--color-error)' }}>✕</span> 还在忍受这些？
             </h3>
-            <ul className="space-y-2 text-gray-400 text-sm">
+            <ul className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-error)' }} />
                 需要安装各种插件和软件
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-error)' }} />
                 下载的视频有水印或画质差
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-error)' }} />
                 批量下载需要反复操作
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-error)' }} />
                 下载速度慢还经常失败
               </li>
             </ul>
           </div>
 
-          <div className="glass-card p-6 border-gold/20">
-            <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-              <span className="text-gold">✓</span> VideoGrab 帮你解决
+          <div className="glass-card p-6">
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+              <span style={{ color: 'var(--color-success)' }}>✓</span> VideoGrab 帮你解决
             </h3>
-            <ul className="space-y-2 text-gray-400 text-sm">
+            <ul className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-success)' }} />
                 浏览器直接使用，无需安装
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-success)' }} />
                 原始画质，无水印无压缩
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-success)' }} />
                 批量添加，一键同时下载
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-success)' }} />
                 多线程加速，稳定高速
               </li>
             </ul>
@@ -192,7 +195,7 @@ export default function HomePage() {
         </div>
       </main>
 
-      <footer className="py-6 text-center text-gray-500 text-sm">
+      <footer className="py-6 text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
         <p>VideoGrab © 2026 · 本地处理，保护隐私</p>
       </footer>
     </div>
