@@ -1,4 +1,10 @@
-"""Video download service using yt-dlp."""
+"""Video download service using yt-dlp.
+
+支持「下载带字幕」选项：
+  - with_subtitle=True 时，下载完成后自动使用 Whisper 生成字幕
+  - 通过 FFmpeg 将字幕烧录（硬编码）到视频中
+  - 替换原文件，文件名后追加 "_subtitled"
+"""
 
 import asyncio
 import logging
@@ -18,6 +24,8 @@ from app.models.schemas import (
     VideoInfo,
 )
 from app.services.douyin_downloader import douyin_downloader
+from app.services.whisper_subtitle_generator import whisper_generator
+from app.services.subtitle_hardcoder import subtitle_hardcoder
 
 logger = logging.getLogger(__name__)
 
@@ -212,8 +220,9 @@ class VideoDownloader:
         status_callback: Optional[Callable[[DownloadItemStatus], None]] = None,
         format_id: Optional[str] = None,
         audio_only: bool = False,
+        with_subtitle: bool = False,
     ) -> DownloadItemStatus:
-        """Download a single video."""
+        """Download a single video, optionally with subtitles hardcoded."""
         
         status = DownloadItemStatus(url=url)
         progress = DownloadProgress()
@@ -232,7 +241,7 @@ class VideoDownloader:
             if status_callback:
                 status_callback(status)
             
-            # 抖音使用专用下载器
+            # 抖音使用专用下载器（不支持字幕）
             if douyin_downloader.is_douyin_url(url):
                 logger.info(f"使用抖音专用下载器: {url}")
                 result = await douyin_downloader.download_video(
@@ -241,6 +250,8 @@ class VideoDownloader:
                     progress=progress,
                     status_callback=status_callback,
                 )
+                if with_subtitle:
+                    logger.warning("抖音视频暂不支持自动字幕，将在后续版本支持")
                 return result
             
             # 其他平台使用 yt-dlp
@@ -257,7 +268,51 @@ class VideoDownloader:
             loop = asyncio.get_event_loop()
             filename = await loop.run_in_executor(None, _download)
             
-            status.filename = filename
+            # === With subtitle: generate and hardcode ===
+            if with_subtitle and not audio_only:
+                logger.info(f"Generating subtitles for: {filename}")
+                try:
+                    video_path = task_dir / filename
+                    if video_path.exists():
+                        # Generate subtitle using Whisper
+                        srt_path = task_dir / f"{video_path.stem}_whisper.srt"
+                        sub_ok = await whisper_generator.generate_subtitle(
+                            video_path=str(video_path),
+                            output_srt=str(srt_path),
+                        )
+                        
+                        if sub_ok and srt_path.exists():
+                            # Hardcode subtitles into video
+                            output_path = task_dir / f"{video_path.stem}_subtitled.mp4"
+                            await subtitle_hardcoder.hardcode_subtitles(
+                                video_path=str(video_path),
+                                subtitle_path=str(srt_path),
+                                output_path=str(output_path),
+                            )
+                            
+                            # Update filename to the subtitled version
+                            status.filename = output_path.name
+                            logger.info(f"Subtitled video saved as: {output_path.name}")
+                            
+                            # Remove original (keep only subtitled version)
+                            try:
+                                video_path.unlink()
+                                srt_path.unlink()
+                            except Exception:
+                                pass
+                        else:
+                            logger.warning(f"Whisper subtitle generation failed, keeping original video")
+                            status.filename = filename
+                    else:
+                        logger.warning(f"Video file not found: {video_path}")
+                        status.filename = filename
+                except Exception as sub_err:
+                    logger.error(f"Failed to add subtitles to video: {sub_err}")
+                    logger.warning("Keeping original video without subtitles")
+                    status.filename = filename
+            else:
+                status.filename = filename
+            
             status.status = DownloadStatus.COMPLETED
             status.progress = 100.0
             
@@ -278,6 +333,7 @@ class VideoDownloader:
         status_callback: Optional[Callable[[int, DownloadItemStatus], None]] = None,
         format_id: Optional[str] = None,
         audio_only: bool = False,
+        with_subtitle: bool = False,
     ) -> list[DownloadItemStatus]:
         """Download multiple videos concurrently."""
         
@@ -292,6 +348,7 @@ class VideoDownloader:
                     status_callback=lambda s: status_callback(index, s) if status_callback else None,
                     format_id=format_id,
                     audio_only=audio_only,
+                    with_subtitle=with_subtitle,
                 )
                 return index, result
         

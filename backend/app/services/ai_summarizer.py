@@ -313,37 +313,35 @@ class AISummarizer:
         """Stream mind map generation.
         
         Yields:
-            JSON chunks with partial mindmap
+            JSON chunks with partial mindmap in Markdown format
         """
         system_prompt = """你是一个思维导图生成助手。根据视频内容，生成树状的思维导图结构。
 
-要求：
-1. 提取3-7个主要主题
-2. 每个主题下生成2-4个要点
-3. 使用简洁的短语作为标题
+**直接输出 Markdown 格式的思维导图，不要有任何开场白、解释或总结！**
 
-返回JSON格式：
-{
-  "title": "视频主题",
-  "children": [
-    {"name": "章节1", "children": [
-      {"name": "要点1"},
-      {"name": "要点2"}
-    ]},
-    {"name": "章节2", "children": [
-      {"name": "要点1"}
-    ]}
-  ]
-}"""
+格式要求：
+1. 第一行是 # 视频主题
+2. 使用 - 表示节点，使用 2空格缩进表示层级
+3. 提取3-7个主要主题
+4. 每个主题下2-4个要点
+5. 使用简洁的短语
 
-        user_prompt = f"视频标题：{video_title}\n\n字幕内容：\n{subtitle_text[:30000]}"
+示例：
+# 视频主题
+- 章节1
+  - 要点1
+  - 要点2
+- 章节2
+  - 要点1"""
+
+        user_prompt = f"视频标题：{video_title}\n\n字幕内容：\n{subtitle_text[:30000]}\n\n请直接输出 Markdown 格式的思维导图："
 
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
 
-        for chunk in self._call_doubao_stream(messages, temperature=0.5):
+        for chunk in self._call_doubao_stream(messages, temperature=0.3):
             yield json.dumps({"type": "mindmap", "data": chunk}, ensure_ascii=False)
 
     def stream_chat(

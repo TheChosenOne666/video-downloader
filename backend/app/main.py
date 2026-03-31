@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.download import router as download_router
 from app.api.summarize import router as summarize_router
+from app.api.subtitle import router as subtitle_router
 from app.core.config import settings
 from app.services.task_manager import set_ws_manager
 
@@ -99,6 +100,7 @@ app.add_middleware(
 # Include routers
 app.include_router(download_router)
 app.include_router(summarize_router)
+app.include_router(subtitle_router)
 
 
 @app.get("/", tags=["health"])

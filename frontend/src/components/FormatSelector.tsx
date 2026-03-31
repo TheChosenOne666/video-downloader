@@ -1,6 +1,6 @@
 import { useApp } from '../context/AppContext';
 
-const formats = [
+const ALL_FORMATS = [
   { id: 'best', label: '最佳质量', desc: '自动选择最高画质', icon: '✨' },
   { id: '1080p', label: '1080P', desc: '全高清画质', icon: '📺' },
   { id: '720p', label: '720P', desc: '高清画质', icon: '🎬' },
@@ -9,12 +9,17 @@ const formats = [
 ];
 
 export default function FormatSelector() {
-  const { selectedFormat, setSelectedFormat } = useApp();
+  const { selectedFormat, setSelectedFormat, downloadMode } = useApp();
+
+  // 带字幕模式不支持音频下载
+  const formats = downloadMode === 'subtitled'
+    ? ALL_FORMATS.filter(f => f.id !== 'audio')
+    : ALL_FORMATS;
 
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium text-gray-300">下载格式</label>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+      <div className={`grid gap-3 ${formats.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'}`}>
         {formats.map((format) => (
           <button
             key={format.id}
@@ -42,3 +47,4 @@ export default function FormatSelector() {
     </div>
   );
 }
+

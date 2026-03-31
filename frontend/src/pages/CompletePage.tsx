@@ -1,12 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import Header from '../components/Header';
 import SuccessAnimation from '../components/SuccessAnimation';
 import { getDownloadUrl } from '../services/api';
 
+const API_BASE = 'http://localhost:8000';
+
+interface SubtitleTask {
+  task_id: string;
+  status: string;
+  progress: number;
+  subtitle_url?: string;
+  video_with_subtitles_url?: string;
+  error?: string;
+}
+
 export default function CompletePage() {
   const { tasks, completedFiles, taskId, reset, setPage } = useApp();
   const [showAnimation, setShowAnimation] = useState(true);
+  const [subtitleTaskId, setSubtitleTaskId] = useState<string | null>(null);
+  const [subtitleTask, setSubtitleTask] = useState<SubtitleTask | null>(null);
+  const [subtitleLoading, setSubtitleLoading] = useState(false);
 
   const handleDownload = (filename: string) => {
     if (!taskId) return;
@@ -18,6 +32,61 @@ export default function CompletePage() {
     completedFiles.forEach(file => {
       handleDownload(file.filename);
     });
+  };
+
+  // 生成字幕
+  const handleGenerateSubtitle = async (videoUrl: string) => {
+    setSubtitleLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/subtitle/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_url: videoUrl,
+          language: 'zh',
+          subtitle_format: 'srt',
+          hardcode: true,
+          soft_subtitles: false,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to create subtitle task');
+      
+      const data = await response.json();
+      setSubtitleTaskId(data.task_id);
+    } catch (err) {
+      console.error('Subtitle generation failed:', err);
+      setSubtitleLoading(false);
+    }
+  };
+
+  // 轮询字幕任务状态
+  useEffect(() => {
+    if (!subtitleTaskId) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/subtitle/${subtitleTaskId}`);
+        const data: SubtitleTask = await response.json();
+        setSubtitleTask(data);
+        
+        if (data.status === 'completed' || data.status === 'failed') {
+          clearInterval(interval);
+          setSubtitleLoading(false);
+        }
+      } catch (err) {
+        console.error('Poll error:', err);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [subtitleTaskId]);
+
+  // 下载带字幕视频
+  const handleDownloadWithSubtitles = () => {
+    if (subtitleTask?.video_with_subtitles_url) {
+      window.open(`${API_BASE}${subtitleTask.video_with_subtitles_url}`, '_blank');
+    }
   };
 
   if (showAnimation) {
@@ -67,37 +136,89 @@ export default function CompletePage() {
           </div>
 
           <div className="divide-y divide-surface-lighter">
-            {completedFiles.map((file, index) => (
-              <div 
-                key={index}
-                className="p-4 flex items-center justify-between hover:bg-surface-light/50 transition-colors"
-              >
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-gold/20 to-gold/5 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-white truncate">
-                      {file.title || file.filename}
-                    </p>
-                    <p className="text-xs text-gray-500 font-mono truncate">
-                      {file.filename}
-                    </p>
+            {completedFiles.map((file, index) => {
+              // 判断是否是视频文件
+              const isVideo = /\.(mp4|mkv|webm|avi|mov|m4v)$/i.test(file.filename);
+              // 获取原始视频URL（从tasks中）
+              const originalUrl = tasks[index]?.url || '';
+              
+              return (
+                <div 
+                  key={index}
+                  className="p-4 hover:bg-surface-light/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-gold/20 to-gold/5 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-white truncate">
+                          {file.title || file.filename}
+                        </p>
+                        <p className="text-xs text-gray-500 font-mono truncate">
+                          {file.filename}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                      {/* 下载原视频按钮 */}
+                      <button
+                        onClick={() => handleDownload(file.filename)}
+                        className="px-4 py-2 bg-gold/20 text-gold rounded-lg hover:bg-gold/30 transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        下载原视频
+                      </button>
+                      
+                      {/* 视频文件显示字幕选项 */}
+                      {isVideo && originalUrl && (
+                        <>
+                          {/* 生成字幕按钮 */}
+                          {!subtitleTaskId && (
+                            <button
+                              onClick={() => handleGenerateSubtitle(originalUrl)}
+                              disabled={subtitleLoading}
+                              className="px-4 py-2 bg-purple-600/20 text-purple-400 rounded-lg hover:bg-purple-600/30 transition-colors flex items-center gap-2 disabled:opacity-50"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                              </svg>
+                              {subtitleLoading ? '生成中...' : '生成字幕'}
+                            </button>
+                          )}
+                          
+                          {/* 字幕生成进度 */}
+                          {subtitleTaskId && subtitleTask && subtitleTask.status === 'processing' && (
+                            <span className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">
+                              字幕生成中 {Math.round(subtitleTask.progress)}%
+                            </span>
+                          )}
+                          
+                          {/* 下载带字幕视频按钮 */}
+                          {subtitleTask && subtitleTask.status === 'completed' && subtitleTask.video_with_subtitles_url && (
+                            <button
+                              onClick={handleDownloadWithSubtitles}
+                              className="px-4 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-colors flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                              下载带字幕视频
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDownload(file.filename)}
-                  className="ml-4 px-4 py-2 bg-gold/20 text-gold rounded-lg hover:bg-gold/30 transition-colors flex items-center gap-2 flex-shrink-0"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  下载
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

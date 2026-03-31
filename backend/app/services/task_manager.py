@@ -127,6 +127,7 @@ class TaskManager:
                 status_callback=status_callback_with_broadcast,
                 format_id=task.request.format_id,
                 audio_only=task.request.audio_only,
+                with_subtitle=task.request.with_subtitle,
             )
             
             # Update final statuses

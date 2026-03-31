@@ -20,3 +20,13 @@ demjson3==3.0.6
 
 # AI - Volcengine Ark SDK for Doubao
 volcengine-python-sdk[ark]>=1.0.0
+
+# Speech Recognition - Faster-Whisper (比原版 Whisper 小3-5倍，快2-4倍)
+faster-whisper>=1.0.0
+
+# FFmpeg bundled binary (无需手动安装 FFmpeg)
+imageio-ffmpeg>=0.4.9
+
+# Subtitle processing
+pysrt>=1.1.2
+webvtt-py>=0.5.1

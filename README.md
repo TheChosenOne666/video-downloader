@@ -94,6 +94,7 @@ npm run dev
 - [API 接口文档](docs/API.md)
 - [开发指南](docs/DEVELOPMENT.md)
 - [AI 视频总结功能](docs/AI_SUMMARIZE_FEATURE.md)
+- [v2.2 更新日志](docs/CHANGELOG_v2.2.md) - Bug 修复与功能优化
 
 ## 🔧 配置
 

@@ -5,9 +5,10 @@ import { getVideoInfo, startDownload, getTaskStatus } from '../services/api';
 interface AppState {
   page: PageType;
   urls: string[];
-  videoUrl: string | null;  // Add this
+  videoUrl: string | null;
   videoInfos: VideoInfo[];
   selectedFormat: string;
+  downloadMode: 'original' | 'subtitled';  // NEW: 下载模式
   taskId: string | null;
   tasks: DownloadTask[];
   completedFiles: { filename: string; title?: string }[];
@@ -22,6 +23,7 @@ interface AppContextType extends AppState {
   setUrls: (urls: string[]) => void;
   setVideoUrl: (url: string | null) => void;
   setSelectedFormat: (format: string) => void;
+  setDownloadMode: (mode: 'original' | 'subtitled') => void;  // NEW
   checkUrls: () => Promise<void>;
   startDownloading: () => Promise<void>;
   fetchStatus: () => Promise<void>;
@@ -31,9 +33,10 @@ interface AppContextType extends AppState {
 const initialState: AppState = {
   page: 'home',
   urls: [],
-  videoUrl: null,  // Add this
+  videoUrl: null,
   videoInfos: [],
   selectedFormat: 'best',
+  downloadMode: 'original',  // NEW
   taskId: null,
   tasks: [],
   completedFiles: [],
@@ -69,6 +72,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, selectedFormat: format }));
   }, []);
 
+  const setDownloadMode = useCallback((mode: 'original' | 'subtitled') => {
+    setState(prev => ({ ...prev, downloadMode: mode }));
+  }, []);
+
   const checkUrls = useCallback(async () => {
     if (state.urls.length === 0) {
       setState(prev => ({ ...prev, error: 'Please enter at least one URL' }));
@@ -99,7 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
 
     try {
-      const response = await startDownload(state.urls, state.selectedFormat);
+      const response = await startDownload(state.urls, state.selectedFormat, state.downloadMode === 'subtitled');
       
       setState(prev => ({ 
         ...prev, 
@@ -114,33 +121,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })),
       }));
 
-      // 启动轮询
-      let pollCount = 0;
+      // 启动轮询 - 使用 response.taskId 和 state.urls.length 避免闭包问题
+      const currentTaskId = response.taskId;
+      const expectedCount = state.urls.length;
+      
       const pollInterval = setInterval(async () => {
-        pollCount++;
-        
         try {
-          const status = await getTaskStatus(response.taskId);
+          const status = await getTaskStatus(currentTaskId);
           
           setState(prev => ({
             ...prev,
-            tasks: state.urls.map((url, i) => {
+            tasks: prev.tasks.map((task, i) => {
               const video = status.videos[i];
+              if (!video) return task;
               return {
-                taskId: response.taskId,
-                url,
-                title: video?.title || prev.tasks[i]?.title || '',
-                status: (video?.status || 'pending') as DownloadTask['status'],
-                progress: video?.progress || 0,
-                filename: video?.filename,
-                error: video?.error,
+                ...task,
+                title: video.title || task.title,
+                status: video.status as DownloadTask['status'],
+                progress: video.progress || 0,
+                filename: video.filename,
+                error: video.error,
               };
             }),
           }));
 
           // 检查完成
-          if (status.status === 'completed' || status.completed >= state.urls.length) {
+          if (status.status === 'completed' || status.status === 'failed' || status.completed >= expectedCount) {
             clearInterval(pollInterval);
+            
             setState(prev => ({
               ...prev,
               page: 'complete',
@@ -151,10 +159,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         } catch (err) {
           console.error('Poll error:', err);
-        }
-
-        if (pollCount >= 600) {
-          clearInterval(pollInterval);
         }
       }, 500);
 
@@ -177,16 +181,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       setState(prev => ({
         ...prev,
-        tasks: state.urls.map((url, i) => {
+        tasks: prev.tasks.map((task, i) => {
           const video = status.videos[i];
+          if (!video) return task;
           return {
-            taskId: state.taskId!,
-            url,
-            title: video?.title || prev.tasks[i]?.title || '',
-            status: (video?.status || 'pending') as DownloadTask['status'],
-            progress: video?.progress || 0,
-            filename: video?.filename,
-            error: video?.error,
+            ...task,
+            title: video.title || task.title,
+            status: video.status as DownloadTask['status'],
+            progress: video.progress || 0,
+            filename: video.filename,
+            error: video.error,
           };
         }),
         completedFiles: status.videos
@@ -196,7 +200,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Fetch status error:', err);
     }
-  }, [state.taskId, state.urls]);
+  }, [state.taskId]);
 
   const reset = useCallback(() => {
     if ((window as any).downloadInterval) {
@@ -214,6 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUrls,
       setVideoUrl,
       setSelectedFormat,
+      setDownloadMode,
       checkUrls,
       startDownloading,
       fetchStatus,

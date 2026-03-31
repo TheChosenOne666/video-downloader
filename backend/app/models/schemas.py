@@ -88,6 +88,7 @@ class DownloadRequest(BaseModel):
     urls: list[str] = Field(..., min_length=1, description="List of video URLs to download")
     format_id: Optional[str] = Field(None, description="Preferred format ID (optional)")
     audio_only: bool = Field(False, description="Download audio only")
+    with_subtitle: bool = Field(False, description="Whether to add AI-generated subtitles to the video")
 
 
 class DownloadResponse(BaseModel):
@@ -210,3 +211,50 @@ class ChatResponse(BaseModel):
     answer: str = Field(..., description="AI answer")
     context: Optional[str] = Field(None, description="Relevant subtitle context")
     chat_history: list[ChatMessage] = Field(default_factory=list, description="Full chat history")
+
+
+# ==================== Subtitle Generation Schemas ====================
+
+class GenerateSubtitleRequest(BaseModel):
+    """Request to generate subtitles for video without subtitles."""
+    
+    video_url: str = Field(..., description="Video URL to generate subtitles for")
+    language: str = Field("zh", description="Language code (e.g., 'zh' for Chinese, 'en' for English)")
+    subtitle_format: str = Field("srt", description="Output format: srt, vtt, or ass")
+    hardcode: bool = Field(False, description="Whether to hardcode subtitles into video")
+    soft_subtitles: bool = Field(False, description="Whether to add soft subtitles (for MP4)")
+
+
+class GenerateSubtitleResponse(BaseModel):
+    """Response for subtitle generation task."""
+    
+    task_id: str = Field(..., description="Task ID for tracking")
+    status: str = Field(..., description="Task status")
+    message: str = Field("Subtitle generation task created")
+
+
+class SubtitleGenerationStatus(str, Enum):
+    """Subtitle generation task status."""
+    
+    PENDING = "pending"
+    DOWNLOADING = "downloading"  # Downloading video
+    EXTRACTING_AUDIO = "extracting_audio"  # Extracting audio
+    TRANSCRIBING = "transcribing"  # Running Whisper
+    HARDCODING = "hardcoding"  # Hardcoding subtitles
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class SubtitleGenerationResult(BaseModel):
+    """Result of subtitle generation."""
+    
+    task_id: str = Field(..., description="Task ID")
+    status: SubtitleGenerationStatus = Field(..., description="Task status")
+    video_info: Optional[VideoInfo] = Field(None, description="Video information")
+    subtitle_text: str = Field("", description="Generated subtitle text")
+    subtitle_url: Optional[str] = Field(None, description="URL to download subtitle file")
+    video_with_subtitles_url: Optional[str] = Field(None, description="URL to download video with hardcoded subtitles")
+    progress: float = Field(0.0, ge=0, le=100, description="Progress percentage")
+    created_at: datetime = Field(..., description="Task creation time")
+    completed_at: Optional[datetime] = Field(None, description="Completion time")
+    error: Optional[str] = Field(None, description="Error message if failed")

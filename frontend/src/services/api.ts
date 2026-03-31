@@ -119,11 +119,11 @@ export async function getVideoInfo(urls: string[]): Promise<VideoInfo[]> {
   return data.infos;
 }
 
-export async function startDownload(urls: string[], format?: string): Promise<DownloadResponse> {
+export async function startDownload(urls: string[], format?: string, withSubtitle?: boolean): Promise<DownloadResponse> {
   const response = await fetch(`${API_BASE}/download`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ urls, format }),
+    body: JSON.stringify({ urls, format_id: format, with_subtitle: withSubtitle }),
   });
   const data = await handleResponse<any>(response);
   

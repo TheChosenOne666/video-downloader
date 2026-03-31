@@ -1,3 +1,5 @@
+import { useApp } from '../context/AppContext';
+
 const features = [
   {
     icon: (
@@ -7,15 +9,17 @@ const features = [
     ),
     title: '极速下载',
     desc: '多线程并发下载，速度提升10倍',
+    page: 'home' as const,
   },
   {
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     ),
-    title: '画质无损',
-    desc: '支持 4K/8K 原始画质下载',
+    title: 'AI 字幕生成',
+    desc: '为无字幕视频自动生成字幕',
+    page: 'subtitle' as const,
   },
   {
     icon: (
@@ -25,6 +29,7 @@ const features = [
     ),
     title: '批量下载',
     desc: '一次添加多个链接，同时处理',
+    page: 'home' as const,
   },
   {
     icon: (
@@ -34,20 +39,27 @@ const features = [
     ),
     title: '安全可靠',
     desc: '本地处理，数据不上传服务器',
+    page: 'home' as const,
   },
 ];
 
 export default function FeatureCards() {
+  const { setPage } = useApp();
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
       {features.map((feature, index) => (
-        <div key={index} className="feature-card group">
+        <button
+          key={index}
+          onClick={() => setPage(feature.page)}
+          className="feature-card group text-left"
+        >
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gold/20 to-gold/5 flex items-center justify-center mb-4 text-gold group-hover:scale-110 transition-transform">
             {feature.icon}
           </div>
           <h3 className="font-semibold text-white mb-1">{feature.title}</h3>
           <p className="text-sm text-gray-500">{feature.desc}</p>
-        </div>
+        </button>
       ))}
     </div>
   );

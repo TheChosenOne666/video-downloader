@@ -5,9 +5,10 @@ import URLInput from '../components/URLInput';
 import FormatSelector from '../components/FormatSelector';
 import FeatureCards from '../components/FeatureCard';
 import VideoPreview from '../components/VideoPreview';
+import DownloadModeSelector from '../components/DownloadModeSelector';
 
 export default function HomePage() {
-  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize } = useApp();
+  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize, downloadMode } = useApp();
   const [pendingDownload, setPendingDownload] = useState(false);
 
   useEffect(() => {
@@ -55,8 +56,9 @@ export default function HomePage() {
           
           {/* Format Selector - Shows after parsing */}
           {videoInfos.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-surface-lighter">
+            <div className="mt-6 pt-6 border-t border-surface-lighter space-y-6">
               <FormatSelector />
+              <DownloadModeSelector />
             </div>
           )}
 
@@ -102,7 +104,7 @@ export default function HomePage() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  开始下载 ({urls.length})
+                  开始下载 ({urls.length}){downloadMode === 'subtitled' ? ' (带字幕)' : ''}
                 </>
               )}
             </button>

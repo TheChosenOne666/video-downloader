@@ -7,7 +7,11 @@ export default function ProgressPage() {
   const { tasks, taskId, fetchStatus, page, setPage } = useApp();
 
   useEffect(() => {
-    if (!taskId) return;
+    if (!taskId) {
+      // No task ID, redirect to home
+      setPage('home');
+      return;
+    }
 
     // 更快轮询（500ms）以显示实时进度
     const interval = setInterval(() => {
@@ -15,20 +19,40 @@ export default function ProgressPage() {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [taskId, fetchStatus]);
+  }, [taskId, fetchStatus, setPage]);
 
   // Redirect if page changed to complete
   useEffect(() => {
     if (page === 'complete') {
-      setPage('complete');
+      // Already on complete, no need to do anything
     }
-  }, [page, setPage]);
+  }, [page]);
 
   const completedCount = tasks.filter(t => t.status === 'completed').length;
   const totalCount = tasks.length;
   const overallProgress = totalCount > 0 
     ? tasks.reduce((acc, t) => acc + t.progress, 0) / totalCount 
     : 0;
+
+  // Show loading state if no tasks yet
+  if (tasks.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
+          <div className="glass-card p-6 mb-8 animate-slide-up">
+            <div className="flex items-center justify-center py-8">
+              <svg className="w-8 h-8 animate-spin text-gold" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span className="ml-3 text-gray-400">正在初始化下载任务...</span>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
