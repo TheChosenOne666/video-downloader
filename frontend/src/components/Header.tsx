@@ -20,17 +20,17 @@ export default function Header() {
       </div>
 
       <nav className="flex items-center gap-2">
-        {/* GEO: FAQ 和教程入口 */}
+        {/* GEO: FAQ 和教程入口 - 悬浮效果 */}
         <button
           onClick={() => navigate('/tutorial')}
-          className="text-sm px-3 py-1.5 rounded-lg transition-colors hidden sm:flex items-center gap-1"
+          className="text-sm px-3 py-1.5 rounded-lg transition-all duration-200 hidden sm:flex items-center gap-1 hover:bg-primary/10 hover:text-primary cursor-pointer"
           style={{ color: 'var(--color-text-secondary)' }}
         >
           📖 教程
         </button>
         <button
           onClick={() => navigate('/faq')}
-          className="text-sm px-3 py-1.5 rounded-lg transition-colors hidden sm:flex items-center gap-1"
+          className="text-sm px-3 py-1.5 rounded-lg transition-all duration-200 hidden sm:flex items-center gap-1 hover:bg-primary/10 hover:text-primary cursor-pointer"
           style={{ color: 'var(--color-text-secondary)' }}
         >
           ❓ 帮助
