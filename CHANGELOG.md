@@ -1,5 +1,111 @@
 # VideoGrab 开发日志
 
+## 2026-04-01 - v2.4 SEO 搜索引擎优化
+
+### 新增功能
+
+#### URL 路由
+- 使用 `react-router-dom` 实现真实 URL 路由
+- 每个页面可独立访问，支持浏览器前进/后退
+- 路由结构：`/`、`/progress`、`/complete`、`/summarize`、`/subtitle`
+
+#### SEO 优化
+- 每个页面独立的 TDK（Title/Description/Keywords）
+- Open Graph 标签支持社交分享预览
+- Schema.org WebApplication 结构化数据
+- robots.txt 搜索引擎爬虫规则
+- sitemap.xml 网站地图
+- 语义化 HTML（正确的 H1 标签使用）
+
+#### 品牌更新
+- 品牌名从 "VideoGrab" 更新为 "万能视频下载"
+- 面向国内用户的中文品牌定位
+
+### Bug 修复
+
+#### 点击"开始下载"需要两次才跳转
+**根因**: ProgressPage 的 useEffect 在 `taskId` 为空时立即跳回首页，导致第一次点击后立即被重定向。
+
+**修复**: 改为检查 `taskId` 和 `urls.length` 同时为空才跳转首页。
+
+```tsx
+// 修复前
+useEffect(() => {
+  if (!taskId) setPage('home');
+}, [taskId, setPage]);
+
+// 修复后
+useEffect(() => {
+  if (!taskId && urls.length === 0) {
+    reset();
+  }
+}, [taskId, urls.length, reset]);
+```
+
+### 新增文件
+
+```
+frontend/
+├── public/
+│   ├── robots.txt          # 搜索引擎爬虫规则
+│   └── sitemap.xml         # 网站地图
+└── src/
+    ├── config/
+    │   └── seo.ts          # SEO 配置文件
+    └── components/
+        └── SEO.tsx         # SEO 组件
+docs/
+└── SEO_OPTIMIZATION.md     # SEO 优化实施报告
+```
+
+### 修改文件
+
+| 文件 | 改动说明 |
+|------|----------|
+| `main.tsx` | 添加 BrowserRouter + HelmetProvider |
+| `App.tsx` | 使用 Routes 替代状态切换 |
+| `AppContext.tsx` | 使用 useNavigate 实现路由跳转 |
+| `index.html` | 完善 SEO 标签 |
+| `Header.tsx` | 品牌名更新，移除 h1 |
+| `HomePage.tsx` | 添加 SEO 组件，h2→h1 |
+| `ProgressPage.tsx` | 添加 SEO 组件，修复导航 bug |
+| `CompletePage.tsx` | 添加 SEO 组件 |
+| `SummarizePage.tsx` | 添加 SEO 组件 |
+| `SubtitleGenerationPage.tsx` | 添加 SEO 组件 |
+
+### 技术要点
+
+#### react-helmet-async 动态 SEO
+```tsx
+<Helmet>
+  <title>{fullTitle}</title>
+  <meta name="description" content={config.description} />
+  <meta name="keywords" content={config.keywords} />
+  <meta property="og:title" content={fullTitle} />
+  <!-- ... -->
+</Helmet>
+```
+
+#### Schema.org 结构化数据
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "万能视频下载",
+  "url": "https://xiaolou.video",
+  "offers": { "price": "0", "priceCurrency": "CNY" }
+}
+```
+
+### 部署注意事项
+
+- [ ] 配置 DNS 解析 `xiaolou.video`
+- [ ] 创建 OG 分享图 `/public/og-cover.png`（1200×630px）
+- [ ] 百度站长平台提交 sitemap
+- [ ] Google Search Console 提交 sitemap
+
+---
+
 ## 2026-04-01 - v2.3 界面重构与流程优化
 
 ### 修复的问题

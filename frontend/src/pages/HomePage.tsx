@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import Header from '../components/Header';
 import URLInput from '../components/URLInput';
@@ -5,8 +6,11 @@ import FormatSelector from '../components/FormatSelector';
 import FeatureCards from '../components/FeatureCard';
 import VideoPreview from '../components/VideoPreview';
 import DownloadModeSelector from '../components/DownloadModeSelector';
+import SEO from '../components/SEO';
+import { seoConfig } from '../config/seo';
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize, downloadMode } = useApp();
 
   // 检查是否解析完成（有视频信息）
@@ -17,23 +21,33 @@ export default function HomePage() {
     await checkUrls();
   };
 
-  // 开始下载
+  // 开始下载 - 先导航再调用下载逻辑
   const handleStartDownload = async () => {
+    // 先导航到进度页面
+    navigate('/progress');
+    // 然后启动下载
     await startDownloading();
+  };
+
+  // AI 总结 - 先导航再更新状态
+  const handleGoToSummarize = () => {
+    navigate('/summarize');
+    goToSummarize();
   };
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO config={seoConfig['/']} />
       <Header />
 
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
         {/* Hero Section */}
         <div className="text-center mb-12 animate-slide-up">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="text-gradient">无法下载？</span>
             <br />
             <span style={{ color: 'var(--color-text-primary)' }}>画质受限？</span>
-          </h2>
+          </h1>
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
             一键解析全网视频，支持 YouTube、B站、抖音等平台，高清无水印下载
           </p>
@@ -113,7 +127,7 @@ export default function HomePage() {
           {hasVideoInfo && (
             <div className="mt-4">
               <button
-                onClick={goToSummarize}
+                onClick={handleGoToSummarize}
                 disabled={!hasVideoInfo || checkingUrls}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
@@ -146,9 +160,9 @@ export default function HomePage() {
         {/* Pain Points */}
         <div className="mt-12 grid md:grid-cols-2 gap-6 animate-slide-up">
           <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
               <span style={{ color: 'var(--color-error)' }}>✕</span> 还在忍受这些？
-            </h3>
+            </h2>
             <ul className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-error)' }} />
@@ -170,9 +184,9 @@ export default function HomePage() {
           </div>
 
           <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
-              <span style={{ color: 'var(--color-success)' }}>✓</span> VideoGrab 帮你解决
-            </h3>
+            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+              <span style={{ color: 'var(--color-success)' }}>✓</span> 万能视频下载帮你解决
+            </h2>
             <ul className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-success)' }} />
@@ -196,7 +210,7 @@ export default function HomePage() {
       </main>
 
       <footer className="py-6 text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
-        <p>VideoGrab © 2026 · 本地处理，保护隐私</p>
+        <p>万能视频下载 © 2026 · 本地处理，保护隐私</p>
       </footer>
     </div>
   );

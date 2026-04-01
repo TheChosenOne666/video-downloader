@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import Header from '../components/Header';
+import SEO from '../components/SEO';
+import { seoConfig } from '../config/seo';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MindmapGraph from '../components/MindmapGraph';
@@ -353,6 +355,7 @@ export default function SummarizePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
+        <SEO config={seoConfig['/summarize']} />
         <Header />
         <div className="flex items-center justify-center flex-1">
           <div className="text-center">
@@ -367,6 +370,7 @@ export default function SummarizePage() {
   if (error || !videoInfo) {
     return (
       <div className="min-h-screen flex flex-col">
+        <SEO config={seoConfig['/summarize']} />
         <Header />
         <div className="flex items-center justify-center flex-1">
           <div className="text-center">
@@ -389,6 +393,7 @@ export default function SummarizePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO config={seoConfig['/summarize']} />
       <Header />
 
       <div className="flex-1 flex flex-col px-4 py-4">

@@ -12,7 +12,7 @@ export default function Header() {
           </svg>
         </div>
         <div>
-          <h1 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>VideoGrab</h1>
+          <div className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>万能视频下载</div>
           <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>视频下载 & AI 总结</p>
         </div>
       </div>

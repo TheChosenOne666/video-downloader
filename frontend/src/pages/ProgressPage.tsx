@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import Header from '../components/Header';
+import SEO from '../components/SEO';
+import { seoConfig } from '../config/seo';
 import { getTaskStatus } from '../services/api';
 import type { DownloadTask } from '../types';
 
 export default function ProgressPage() {
-  const { taskId, urls, videoInfos, tasks, completedFiles, updateTasks, downloadFile, setPage, reset } = useApp();
+  const { taskId, urls, videoInfos, tasks, completedFiles, updateTasks, downloadFile, reset } = useApp();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const urlsRef = useRef(urls);
   const videoInfosRef = useRef(videoInfos);
@@ -69,10 +71,12 @@ export default function ProgressPage() {
     };
   }, [taskId, updateTasks]);
 
-  // 没有 taskId 时跳转首页
+  // 没有 taskId 且没有 urls 时跳转首页（说明用户直接访问了这个页面）
   useEffect(() => {
-    if (!taskId) setPage('home');
-  }, [taskId, setPage]);
+    if (!taskId && urls.length === 0) {
+      reset();
+    }
+  }, [taskId, urls.length, reset]);
 
   const completedCount = tasks.filter(t => t.status === 'completed').length;
   const totalCount = tasks.length || urls.length || 1;
@@ -83,6 +87,7 @@ export default function ProgressPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO config={seoConfig['/progress']} />
       <Header />
 
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
@@ -90,7 +95,7 @@ export default function ProgressPage() {
         <div className="glass-card p-6 mb-8 animate-slide-up">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>下载进度</h2>
+              <h1 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>下载进度</h1>
               <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
                 任务 ID: <span className="font-mono" style={{ color: 'var(--color-primary)' }}>{taskId?.slice(0, 8)}...</span>
               </p>
@@ -170,9 +175,9 @@ export default function ProgressPage() {
         {/* Download All */}
         {completedFiles.length > 0 && (
           <div className="mt-8 glass-card p-6 text-center animate-slide-up">
-            <h3 className="font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+            <h2 className="font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
               ✅ 全部下载完成！共 {completedFiles.length} 个文件
-            </h3>
+            </h2>
             <div className="flex gap-4 justify-center">
               <button
                 onClick={() => completedFiles.forEach(f => downloadFile(f.filename))}

@@ -1,31 +1,22 @@
-import { AppProvider, useApp } from './context/AppContext';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AppProvider } from './context/AppContext';
 import HomePage from './pages/HomePage';
 import ProgressPage from './pages/ProgressPage';
 import CompletePage from './pages/CompletePage';
 import SummarizePage from './pages/SummarizePage';
 import SubtitleGenerationPage from './pages/SubtitleGenerationPage';
 
-function AppContent() {
-  const { page } = useApp();
-
-  switch (page) {
-    case 'progress':
-      return <ProgressPage />;
-    case 'complete':
-      return <CompletePage />;
-    case 'summarize':
-      return <SummarizePage />;
-    case 'subtitle':
-      return <SubtitleGenerationPage />;
-    default:
-      return <HomePage />;
-  }
-}
-
 function App() {
   return (
     <AppProvider>
-      <AppContent />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/progress" element={<ProgressPage />} />
+        <Route path="/complete" element={<CompletePage />} />
+        <Route path="/summarize" element={<SummarizePage />} />
+        <Route path="/subtitle" element={<SubtitleGenerationPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </AppProvider>
   );
 }

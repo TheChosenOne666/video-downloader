@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { PageType, VideoInfo, DownloadTask } from '../types';
 import { getVideoInfo, startDownload, getDownloadUrl } from '../services/api';
 
@@ -49,19 +50,33 @@ const initialState: AppState = {
   checkingUrls: false,
 };
 
+const routeMap: Record<PageType, string> = {
+  home: '/',
+  progress: '/progress',
+  complete: '/complete',
+  summarize: '/summarize',
+  subtitle: '/subtitle',
+};
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+
   const [state, setState] = useState<AppState>(initialState);
   // 用 ref 存最新值，避免闭包陷阱
   const stateRef = useRef(state);
   stateRef.current = state;
 
   const setPage = useCallback((page: PageType) => {
+    navigateRef.current(routeMap[page]);
     setState(prev => ({ ...prev, page, error: null }));
   }, []);
 
   const goToSummarize = useCallback(() => {
+    // 只更新状态，导航由调用方处理
     setState(prev => {
       const videoUrl = prev.urls[0] || null;
       return { ...prev, page: 'summarize', videoUrl, error: null };
@@ -117,7 +132,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   /**
    * startDownloading: 从 ref 读取最新 state，避免闭包过期。
-   * 立即跳转到 progress 页面，然后后台调用 API。
+   * 调用下载 API，不负责导航（导航由调用方处理）。
    */
   const startDownloading = useCallback(async () => {
     const current = stateRef.current;
@@ -127,7 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 立即跳转到进度页面
+    // 更新状态（导航由调用方处理）
     setState(prev => ({
       ...prev,
       loading: true,
@@ -164,6 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loading: false,
         page: 'home',
       }));
+      navigateRef.current('/');
     }
   }, []); // 无依赖！全从 ref 读取
 
@@ -180,6 +196,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
+    navigateRef.current('/');
     setState(initialState);
   }, []);
 

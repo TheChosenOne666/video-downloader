@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /progress
+Disallow: /complete
+
+Sitemap: https://xiaolou.video/sitemap.xml

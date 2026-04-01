@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import Header from '../components/Header';
+import SEO from '../components/SEO';
+import { seoConfig } from '../config/seo';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -117,6 +119,7 @@ export default function SubtitleGenerationPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO config={seoConfig['/subtitle']} />
       <Header />
       
       <div className="max-w-4xl mx-auto px-4 py-8 flex-1">

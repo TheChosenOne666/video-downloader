@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import Header from '../components/Header';
+import SEO from '../components/SEO';
+import { seoConfig } from '../config/seo';
 import SuccessAnimation from '../components/SuccessAnimation';
 import { getDownloadUrl } from '../services/api';
 
@@ -96,6 +98,7 @@ export default function CompletePage() {
   if (showAnimation) {
     return (
       <div className="min-h-screen flex flex-col">
+        <SEO config={seoConfig['/complete']} />
         <Header />
         <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl flex items-center justify-center">
           <SuccessAnimation onComplete={() => setShowAnimation(false)} />
@@ -172,6 +175,7 @@ export default function CompletePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO config={seoConfig['/complete']} />
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
         <div className="glass-card p-6 mb-8 text-center animate-slide-up">
