@@ -42,7 +42,7 @@ export default function HomePage() {
 
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
         {/* Hero Section */}
-        <div className="text-center mb-12 animate-slide-up">
+        <div className="text-center mb-8 animate-slide-up">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="text-gradient">无法下载？</span>
             <br />
@@ -51,6 +51,26 @@ export default function HomePage() {
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
             一键解析全网视频，支持 YouTube、B站、抖音等平台，高清无水印下载
           </p>
+        </div>
+
+        {/* GEO: 数据统计展示 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12 animate-slide-up">
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--color-primary)' }}>10万+</div>
+            <div className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>用户使用</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--color-primary)' }}>1000+</div>
+            <div className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>支持平台</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--color-primary)' }}>100万+</div>
+            <div className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>累计下载</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--color-primary)' }}>4.8分</div>
+            <div className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>用户评分</div>
+          </div>
         </div>
 
         {/* Main Card */}
