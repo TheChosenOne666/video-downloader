@@ -5,6 +5,8 @@ import ProgressPage from './pages/ProgressPage';
 import CompletePage from './pages/CompletePage';
 import SummarizePage from './pages/SummarizePage';
 import SubtitleGenerationPage from './pages/SubtitleGenerationPage';
+import FAQPage from './pages/FAQPage';
+import TutorialPage from './pages/TutorialPage';
 
 function App() {
   return (
@@ -15,6 +17,8 @@ function App() {
         <Route path="/complete" element={<CompletePage />} />
         <Route path="/summarize" element={<SummarizePage />} />
         <Route path="/subtitle" element={<SubtitleGenerationPage />} />
+        <Route path="/faq" element={<FAQPage />} />
+        <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppProvider>

@@ -44,6 +44,18 @@ export const seoConfig: Record<string, SEOConfig> = {
     keywords: 'AI字幕生成,视频字幕,自动字幕,字幕提取,SRT字幕',
     ogType: 'article',
   },
+  '/faq': {
+    title: '常见问题解答 - 万能视频下载使用帮助',
+    description: '万能视频下载常见问题解答，包括支持平台、使用教程、功能介绍等。帮助你快速上手视频下载工具。',
+    keywords: '万能视频下载帮助,视频下载教程,常见问题,使用指南',
+    ogType: 'article',
+  },
+  '/tutorial': {
+    title: '使用教程 - 万能视频下载详细步骤指南',
+    description: '万能视频下载详细使用教程，包括抖音、B站、YouTube等平台的下载步骤，批量下载教程，AI功能使用指南。',
+    keywords: '万能视频下载教程,抖音下载教程,B站下载教程,YouTube下载教程,批量下载',
+    ogType: 'article',
+  },
 };
 
 export const defaultSEO: SEOConfig = {

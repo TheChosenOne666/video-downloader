@@ -1,5 +1,61 @@
 # VideoGrab 开发日志
 
+## 2026-04-01 - v2.5 GEO 生成式引擎优化
+
+### 新增功能
+
+#### FAQ 常见问题页面
+- 路径 `/faq`
+- 14 个常见问题，8 个分类
+- FAQPage Schema 结构化数据
+- GEO 友好的问答格式
+
+#### 使用教程页面
+- 路径 `/tutorial`
+- 快速入门（3步）
+- 5 个详细教程（抖音、B站、YouTube、批量、AI功能）
+- HowTo Schema 结构化数据
+
+#### 增强 Schema.org 结构化数据
+- WebApplication 添加 aggregateRating、usageInfo、supportedPlatform
+- 新增 FAQPage Schema（14个问答）
+- 新增 HowTo Schema（使用教程）
+- 更完整的组织信息和功能列表
+
+#### 导航优化
+- Header 添加教程入口
+- Header 添加帮助入口
+
+### GEO 优化价值
+
+| Schema 类型 | 价值 |
+|-------------|------|
+| WebApplication | AI 可准确理解产品类型、功能、价格 |
+| FAQPage | AI 可直接引用问答内容 |
+| HowTo | AI 可引用教程步骤 |
+
+### 新增文件
+
+```
+frontend/src/pages/
+├── FAQPage.tsx       # 常见问题页面
+└── TutorialPage.tsx  # 使用教程页面
+docs/
+└── GEO_OPTIMIZATION.md  # GEO 优化实施报告
+```
+
+### 修改文件
+
+| 文件 | 改动说明 |
+|------|----------|
+| `SEO.tsx` | 增强结构化数据 |
+| `App.tsx` | 添加 FAQ 和 Tutorial 路由 |
+| `Header.tsx` | 添加教程和帮助入口 |
+| `seo.ts` | 添加新页面 SEO 配置 |
+| `sitemap.xml` | 添加新页面 |
+
+---
+
 ## 2026-04-01 - v2.4 SEO 搜索引擎优化
 
 ### 新增功能
