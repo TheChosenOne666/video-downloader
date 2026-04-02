@@ -6,6 +6,7 @@ import { getVideoInfo, startDownload, getDownloadUrl } from '../services/api';
 interface UserInfo {
   username: string;
   email: string;
+  role: string;
 }
 
 interface AppState {

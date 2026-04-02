@@ -156,6 +156,7 @@ export interface AuthResponse {
   token: string;
   username: string;
   email: string;
+  role: string;
   expires_in: number;
 }
 
@@ -163,6 +164,7 @@ export interface UserInfo {
   id: string;
   username: string;
   email: string;
+  role: string;
   created_at: string;
 }
 

@@ -30,6 +30,7 @@ export default function AuthPage() {
       localStorage.setItem('user_info', JSON.stringify({
         username: response.username,
         email: response.email,
+        role: response.role,
       }));
 
       // 跳转到首页

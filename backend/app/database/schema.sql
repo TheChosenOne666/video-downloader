@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,          -- Unique username
     email TEXT UNIQUE NOT NULL,            -- Unique email
     password_hash TEXT NOT NULL,            -- SHA256 hash with salt
+    role TEXT NOT NULL DEFAULT 'user',      -- Permission role: user, vip, admin
     created_at TEXT NOT NULL,              -- ISO timestamp
     last_login TEXT                         -- Last login timestamp
 );
