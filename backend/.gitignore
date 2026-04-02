@@ -1,33 +1,11 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-ENV/
-.venv/
-env/
+# SQLite database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+# Data directory
+data/
 
-# Environment
-.env
-.env.local
-
-# Downloads
-downloads/*
-!downloads/.gitkeep
-
-# Logs
-*.log
-logs/
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
+# Test files
+test_*.py

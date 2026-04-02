@@ -23,6 +23,7 @@ from app.models.schemas import (
     MindMapNode,
     MindMapData,
 )
+from app.database import summarize_repository
 from app.services.subtitle_extractor import subtitle_extractor
 from app.services.ai_summarizer import ai_summarizer
 
@@ -30,9 +31,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/summarize", tags=["summarize"])
 
-# In-memory storage for summarization tasks
-# In production, use Redis or database
-summarize_tasks: Dict[str, dict] = {}
+# In-memory storage for chat histories (lightweight, can be extended to DB if needed)
 chat_histories: Dict[str, list] = {}
 
 
@@ -123,29 +122,31 @@ def _build_mindmap_response(mindmap_data: dict) -> Optional[MindMapData]:
 
 async def _process_summarization(task_id: str, video_url: str):
     """Background task to process summarization."""
-    task = summarize_tasks.get(task_id)
-    if not task:
-        return
-
     try:
         # Step 1: Extract subtitle
-        task["status"] = SummarizeStatus.EXTRACTING
+        await summarize_repository.update_task(task_id, status=SummarizeStatus.EXTRACTING)
         logger.info(f"[{task_id}] Extracting subtitle...")
 
         subtitle_text, subtitle_entries, video_info = await subtitle_extractor.extract_subtitle(video_url)
 
-        task["video_info"] = video_info
-        task["subtitle"] = subtitle_text
-        task["subtitle_entries"] = subtitle_entries
+        await summarize_repository.update_task(
+            task_id,
+            video_info=video_info,
+            subtitle=subtitle_text,
+            subtitle_entries=subtitle_entries
+        )
 
         if not subtitle_text:
-            task["status"] = SummarizeStatus.FAILED
-            task["error"] = "No subtitle found for this video"
-            task["completed_at"] = datetime.now()
+            await summarize_repository.update_task(
+                task_id,
+                status=SummarizeStatus.FAILED,
+                error="No subtitle found for this video",
+                completed=True
+            )
             return
 
         # Step 2: AI Analysis
-        task["status"] = SummarizeStatus.ANALYZING
+        await summarize_repository.update_task(task_id, status=SummarizeStatus.ANALYZING)
         logger.info(f"[{task_id}] AI analyzing...")
 
         # Generate summary
@@ -153,32 +154,34 @@ async def _process_summarization(task_id: str, video_url: str):
             subtitle_text,
             video_info.get("title", "")
         )
-        task["summary"] = summary
+        await summarize_repository.update_task(task_id, summary=summary)
 
         # Generate chapters
         chapters = await ai_summarizer.generate_chapters(
             subtitle_text,
             video_info.get("duration", 0)
         )
-        task["chapters"] = chapters
+        await summarize_repository.update_task(task_id, chapters=chapters)
 
         # Generate mindmap
         mindmap = await ai_summarizer.generate_mindmap(
             subtitle_text,
             video_info.get("title", "")
         )
-        task["mindmap"] = mindmap
+        await summarize_repository.update_task(task_id, mindmap=mindmap)
 
         # Mark completed
-        task["status"] = SummarizeStatus.COMPLETED
-        task["completed_at"] = datetime.now()
+        await summarize_repository.update_task(task_id, status=SummarizeStatus.COMPLETED, completed=True)
         logger.info(f"[{task_id}] Summarization completed")
 
     except Exception as e:
         logger.error(f"[{task_id}] Summarization failed: {e}")
-        task["status"] = SummarizeStatus.FAILED
-        task["error"] = str(e)
-        task["completed_at"] = datetime.now()
+        await summarize_repository.update_task(
+            task_id,
+            status=SummarizeStatus.FAILED,
+            error=str(e),
+            completed=True
+        )
 
 
 # ================================================================
@@ -198,21 +201,12 @@ async def create_summarize_task(request: SummarizeRequest) -> SummarizeResponse:
     try:
         task_id = str(uuid.uuid4())
 
-        summarize_tasks[task_id] = {
-            "task_id": task_id,
-            "status": SummarizeStatus.PENDING,
-            "video_url": request.video_url,
-            "platform": request.platform,
-            "video_info": None,
-            "subtitle": "",
-            "subtitle_entries": [],
-            "summary": "",
-            "chapters": [],
-            "mindmap": None,
-            "created_at": datetime.now(),
-            "completed_at": None,
-            "error": None,
-        }
+        # Save to database
+        await summarize_repository.create_task(
+            task_id=task_id,
+            video_url=request.video_url,
+            platform=request.platform,
+        )
 
         import asyncio
         asyncio.create_task(_process_summarization(task_id, request.video_url))
@@ -376,7 +370,7 @@ async def stream_chat(
 
         # 方式1: 通过 task_id 获取字幕
         if task_id:
-            task = summarize_tasks.get(task_id)
+            task = await summarize_repository.get_task(task_id)
             if task:
                 subtitle_text = task.get("subtitle", "")
 
@@ -419,7 +413,7 @@ async def stream_chat(
 )
 async def get_summarize_result(task_id: str) -> SummarizeResultResponse:
     """Get summarization result by task ID."""
-    task = summarize_tasks.get(task_id)
+    task = await summarize_repository.get_task(task_id)
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -430,8 +424,8 @@ async def get_summarize_result(task_id: str) -> SummarizeResultResponse:
 
     return SummarizeResultResponse(
         task_id=task_id,
-        status=task["status"],
-        video_info=VideoInfo.from_dict(video_info),
+        status=SummarizeStatus(task["status"]),
+        video_info=VideoInfo.from_dict(video_info) if isinstance(video_info, dict) else video_info,
         subtitle=task.get("subtitle", ""),
         subtitle_entries=[
             SubtitleEntry(start=e["start"], end=e["end"], text=e["text"])
@@ -443,8 +437,8 @@ async def get_summarize_result(task_id: str) -> SummarizeResultResponse:
             for c in task.get("chapters", [])
         ],
         mindmap=_build_mindmap_response(task.get("mindmap")) if task.get("mindmap") else None,
-        created_at=task["created_at"],
-        completed_at=task.get("completed_at"),
+        created_at=datetime.fromisoformat(task["created_at"].replace("Z", "+00:00")) if isinstance(task["created_at"], str) else task["created_at"],
+        completed_at=datetime.fromisoformat(task["completed_at"].replace("Z", "+00:00")) if task.get("completed_at") and isinstance(task["completed_at"], str) else task.get("completed_at"),
         error=task.get("error"),
     )
 
@@ -458,14 +452,14 @@ async def get_summarize_result(task_id: str) -> SummarizeResultResponse:
 )
 async def chat_about_video(task_id: str, request: ChatRequest) -> ChatResponse:
     """Ask question about video content (non-streaming)."""
-    task = summarize_tasks.get(task_id)
+    task = await summarize_repository.get_task(task_id)
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Task not found: {task_id}",
         )
 
-    if task["status"] != SummarizeStatus.COMPLETED:
+    if task["status"] != SummarizeStatus.COMPLETED.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Task is not completed yet",
@@ -492,6 +486,19 @@ async def chat_about_video(task_id: str, request: ChatRequest) -> ChatResponse:
             "answer": result["answer"]
         })
         chat_histories[task_id] = history
+
+        # Save chat history to database
+        await summarize_repository.add_chat_message(
+            task_id=task_id,
+            role="user",
+            content=request.question
+        )
+        await summarize_repository.add_chat_message(
+            task_id=task_id,
+            role="assistant",
+            content=result["answer"],
+            context=result.get("context")
+        )
 
         chat_messages = []
         for h in history:
@@ -521,13 +528,13 @@ async def chat_about_video(task_id: str, request: ChatRequest) -> ChatResponse:
 )
 async def delete_summarize_task(task_id: str) -> None:
     """Delete a summarization task."""
-    if task_id not in summarize_tasks:
+    deleted = await summarize_repository.delete_task(task_id)
+    if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Task not found: {task_id}",
         )
 
-    del summarize_tasks[task_id]
     if task_id in chat_histories:
         del chat_histories[task_id]
 

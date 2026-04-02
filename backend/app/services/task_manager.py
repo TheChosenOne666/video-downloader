@@ -1,11 +1,12 @@
-"""Task manager for handling download tasks."""
+"""Task manager for handling download tasks with database persistence."""
 
 import asyncio
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
+from app.database import task_repository
 from app.models.schemas import (
     DownloadItemStatus,
     DownloadRequest,
@@ -82,33 +83,77 @@ class DownloadTask:
 
 
 class TaskManager:
-    """Manager for download tasks."""
+    """Manager for download tasks with database persistence."""
     
     def __init__(self) -> None:
         self._tasks: dict[str, DownloadTask] = {}
         self._lock = asyncio.Lock()
     
     async def create_task(self, request: DownloadRequest) -> str:
-        """Create a new download task."""
+        """Create a new download task.
+        
+        Saves to both memory (for fast access) and database (for persistence).
+        """
         task_id = str(uuid.uuid4())
         task = DownloadTask(task_id, request)
         
         async with self._lock:
             self._tasks[task_id] = task
         
+        # Save to database (non-blocking, fire-and-forget)
+        asyncio.create_task(self._save_task_to_db(task))
+        
         # Start download in background
         task._task = asyncio.create_task(self._run_task(task))
         
         return task_id
     
+    async def _save_task_to_db(self, task: DownloadTask) -> None:
+        """Save task to database."""
+        try:
+            await task_repository.create_task(
+                task_id=task.task_id,
+                urls=task.request.urls,
+                format_id=task.request.format_id,
+                audio_only=task.request.audio_only,
+                with_subtitle=task.request.with_subtitle,
+            )
+            logger.debug(f"Task {task.task_id} saved to database")
+        except Exception as e:
+            logger.error(f"Failed to save task to database: {e}")
+    
     async def _run_task(self, task: DownloadTask) -> None:
         """Execute download task."""
         task.status = DownloadStatus.DOWNLOADING
         
-        # 包装回调来同时更新 WebSocket
-        def status_callback_with_broadcast(index: int, status: DownloadItemStatus):
+        # Update database status
+        asyncio.create_task(task_repository.update_task_status(
+            task.task_id,
+            DownloadStatus.DOWNLOADING
+        ))
+        
+        # Wrapper callback for progress updates
+        async def status_callback_with_broadcast(index: int, status: DownloadItemStatus):
+            # Update in-memory
             task.update_item_status(index, status)
-            # 异步广播进度到 WebSocket（不阻塞）
+            
+            # Update database
+            try:
+                await task_repository.update_item(
+                    task_id=task.task_id,
+                    url=status.url,
+                    status=status.status,
+                    progress=status.progress,
+                    title=status.title,
+                    filename=status.filename,
+                    error=status.error,
+                    speed=status.speed,
+                    eta=status.eta,
+                )
+            except Exception as e:
+                logger.error(f"Failed to update item in database: {e}")
+            
+            # Broadcast to WebSocket (non-blocking)
             asyncio.create_task(broadcast_progress(task.task_id, {
                 "type": "progress",
                 "index": index,
@@ -148,7 +193,20 @@ class TaskManager:
         
         finally:
             task.finished_at = datetime.now()
-            # 广播完成状态
+            
+            # Update database
+            try:
+                await task_repository.update_task_status(
+                    task.task_id,
+                    task.status,
+                    completed_count=task.completed,
+                    failed_count=task.failed,
+                    finished=True
+                )
+            except Exception as e:
+                logger.error(f"Failed to update task status in database: {e}")
+            
+            # Broadcast completion
             await broadcast_progress(task.task_id, {
                 "type": "completed",
                 "status": task.status.value,
@@ -170,6 +228,13 @@ class TaskManager:
             task._task.cancel()
             task.status = DownloadStatus.CANCELLED
             task.finished_at = datetime.now()
+            
+            # Update database
+            asyncio.create_task(task_repository.update_task_status(
+                task_id,
+                DownloadStatus.CANCELLED,
+                finished=True
+            ))
             return True
         
         return False
@@ -188,6 +253,9 @@ class TaskManager:
                 
                 # Remove from memory
                 del self._tasks[task_id]
+                
+                # Remove from database
+                asyncio.create_task(task_repository.delete_task(task_id))
                 return True
         
         return False

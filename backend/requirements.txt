@@ -3,6 +3,9 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 python-multipart==0.0.20
 
+# Database
+aiosqlite==0.20.0  # Async SQLite support
+
 # Video download
 yt-dlp==2025.3.21
 

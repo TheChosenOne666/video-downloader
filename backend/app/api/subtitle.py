@@ -1,9 +1,9 @@
-"""Subtitle generation API endpoints."""
+"""Subtitle generation API endpoints with database persistence."""
 
 import logging
 import uuid
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Optional
 import asyncio
 from pathlib import Path
 
@@ -18,6 +18,8 @@ from app.models.schemas import (
     VideoInfo,
     ErrorResponse,
 )
+from app.database import subtitle_task_repository
+from app.database.connection import get_db_path
 from app.services.downloader import downloader
 from app.services.whisper_subtitle_generator import get_whisper_generator
 from app.services.subtitle_hardcoder import subtitle_hardcoder
@@ -26,9 +28,6 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/subtitle", tags=["subtitle"])
-
-# In-memory storage for subtitle generation tasks
-subtitle_tasks: Dict[str, dict] = {}
 
 
 @router.post(
@@ -47,24 +46,15 @@ async def create_subtitle_generation_task(request: GenerateSubtitleRequest) -> G
     try:
         task_id = str(uuid.uuid4())
         
-        # Initialize task
-        subtitle_tasks[task_id] = {
-            "task_id": task_id,
-            "status": SubtitleGenerationStatus.PENDING,
-            "video_url": request.video_url,
-            "language": request.language,
-            "subtitle_format": request.subtitle_format,
-            "hardcode": request.hardcode,
-            "soft_subtitles": request.soft_subtitles,
-            "video_info": None,
-            "subtitle_text": "",
-            "subtitle_path": None,
-            "video_with_subtitles_path": None,
-            "progress": 0.0,
-            "created_at": datetime.now(),
-            "completed_at": None,
-            "error": None,
-        }
+        # Save to database
+        await subtitle_task_repository.create_task(
+            task_id=task_id,
+            video_url=request.video_url,
+            language=request.language,
+            subtitle_format=request.subtitle_format,
+            hardcode=request.hardcode,
+            soft_subtitles=request.soft_subtitles,
+        )
         
         # Start async processing
         asyncio.create_task(_process_subtitle_generation(task_id, request))
@@ -95,7 +85,7 @@ async def create_subtitle_generation_task(request: GenerateSubtitleRequest) -> G
 )
 async def get_subtitle_task_status(task_id: str) -> SubtitleGenerationResult:
     """Get subtitle generation task status."""
-    task = subtitle_tasks.get(task_id)
+    task = await subtitle_task_repository.get_task(task_id)
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -104,15 +94,15 @@ async def get_subtitle_task_status(task_id: str) -> SubtitleGenerationResult:
     
     return SubtitleGenerationResult(
         task_id=task_id,
-        status=task["status"],
-        video_info=task["video_info"],
-        subtitle_text=task["subtitle_text"],
-        subtitle_url=f"/api/subtitle/{task_id}/download/subtitle" if task["subtitle_path"] else None,
-        video_with_subtitles_url=f"/api/subtitle/{task_id}/download/video" if task["video_with_subtitles_path"] else None,
-        progress=task["progress"],
-        created_at=task["created_at"],
-        completed_at=task["completed_at"],
-        error=task["error"],
+        status=SubtitleGenerationStatus(task["status"]),
+        video_info=VideoInfo.from_dict(task["video_info"]) if task.get("video_info") else None,
+        subtitle_text=task.get("subtitle_text", ""),
+        subtitle_url=f"/api/subtitle/{task_id}/download/subtitle" if task.get("subtitle_path") else None,
+        video_with_subtitles_url=f"/api/subtitle/{task_id}/download/video" if task.get("video_with_subtitles_path") else None,
+        progress=task.get("progress", 0.0),
+        created_at=datetime.fromisoformat(task["created_at"].replace("Z", "+00:00")) if isinstance(task["created_at"], str) else task["created_at"],
+        completed_at=datetime.fromisoformat(task["completed_at"].replace("Z", "+00:00")) if task.get("completed_at") and isinstance(task["completed_at"], str) else task.get("completed_at"),
+        error=task.get("error"),
     )
 
 
@@ -123,14 +113,14 @@ async def get_subtitle_task_status(task_id: str) -> SubtitleGenerationResult:
 )
 async def download_subtitle_file(task_id: str):
     """Download generated subtitle file."""
-    task = subtitle_tasks.get(task_id)
+    task = await subtitle_task_repository.get_task(task_id)
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Task not found: {task_id}",
         )
     
-    if not task["subtitle_path"]:
+    if not task.get("subtitle_path"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Subtitle file not available",
@@ -145,7 +135,7 @@ async def download_subtitle_file(task_id: str):
     
     return FileResponse(
         path=subtitle_path,
-        filename=f"subtitle.{task['subtitle_format']}",
+        filename=f"subtitle.{task.get('subtitle_format', 'srt')}",
         media_type="text/plain",
     )
 
@@ -157,14 +147,14 @@ async def download_subtitle_file(task_id: str):
 )
 async def download_video_with_subtitles(task_id: str):
     """Download video with hardcoded subtitles."""
-    task = subtitle_tasks.get(task_id)
+    task = await subtitle_task_repository.get_task(task_id)
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Task not found: {task_id}",
         )
     
-    if not task["video_with_subtitles_path"]:
+    if not task.get("video_with_subtitles_path"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Video with subtitles not available",
@@ -179,30 +169,28 @@ async def download_video_with_subtitles(task_id: str):
     
     return FileResponse(
         path=video_path,
-        filename=f"video_with_subtitles.mp4",
+        filename="video_with_subtitles.mp4",
         media_type="video/mp4",
     )
 
 
 async def _process_subtitle_generation(task_id: str, request: GenerateSubtitleRequest):
     """Background task to process subtitle generation."""
-    task = subtitle_tasks.get(task_id)
-    if not task:
-        return
-    
     try:
         # Step 1: Download video
-        task["status"] = SubtitleGenerationStatus.DOWNLOADING
-        task["progress"] = 10.0
+        await subtitle_task_repository.update_task(
+            task_id,
+            status=SubtitleGenerationStatus.DOWNLOADING,
+            progress=10.0
+        )
         logger.info(f"[{task_id}] Downloading video...")
         
         try:
             # Download video using existing downloader
-            # 使用 bestaudio 格式确保有音频流（B站等平台音视频分离）
             dl_status = await downloader.download_video(
                 url=request.video_url,
                 task_id=task_id,
-                format_id="bestaudio/best",  # 优先下载带音频的格式
+                format_id="bestaudio/best",
             )
             
             if dl_status.status.value != "completed" or not dl_status.filename:
@@ -215,28 +203,37 @@ async def _process_subtitle_generation(task_id: str, request: GenerateSubtitleRe
             try:
                 from app.models.schemas import VideoInfo
                 info = await downloader.get_video_info(request.video_url)
-                task["video_info"] = VideoInfo(
-                    title=info.title,
-                    duration=info.duration,
-                    thumbnail=info.thumbnail,
-                    uploader=info.uploader,
-                    view_count=info.view_count,
+                await subtitle_task_repository.update_task(
+                    task_id,
+                    video_info={
+                        "title": info.title,
+                        "duration": info.duration,
+                        "thumbnail": info.thumbnail,
+                        "uploader": info.uploader,
+                        "view_count": info.view_count,
+                    }
                 )
             except Exception as e:
                 logger.warning(f"[{task_id}] Could not get video info: {e}")
             
-            task["progress"] = 30.0
+            await subtitle_task_repository.update_task(task_id, progress=30.0)
             
         except Exception as e:
             logger.error(f"[{task_id}] Failed to download video: {e}")
-            task["status"] = SubtitleGenerationStatus.FAILED
-            task["error"] = f"Failed to download video: {str(e)}"
-            task["completed_at"] = datetime.now()
+            await subtitle_task_repository.update_task(
+                task_id,
+                status=SubtitleGenerationStatus.FAILED,
+                error=f"Failed to download video: {str(e)}",
+                completed=True
+            )
             return
         
         # Step 2: Generate subtitles using Faster-Whisper
-        task["status"] = SubtitleGenerationStatus.TRANSCRIBING
-        task["progress"] = 40.0
+        await subtitle_task_repository.update_task(
+            task_id,
+            status=SubtitleGenerationStatus.TRANSCRIBING,
+            progress=40.0
+        )
         logger.info(f"[{task_id}] Generating subtitles with Faster-Whisper...")
         
         try:
@@ -257,35 +254,46 @@ async def _process_subtitle_generation(task_id: str, request: GenerateSubtitleRe
                 subtitle_text = whisper_gen.segments_to_srt(segments)
                 subtitle_ext = "srt"
             
-            task["subtitle_text"] = subtitle_text
-            task["progress"] = 60.0
+            await subtitle_task_repository.update_task(
+                task_id,
+                subtitle_text=subtitle_text,
+                progress=60.0
+            )
             
             # Save subtitle file
             subtitle_path = Path(settings.download_dir) / task_id / f"subtitle.{subtitle_ext}"
             subtitle_path.parent.mkdir(parents=True, exist_ok=True)
             subtitle_path.write_text(subtitle_text, encoding="utf-8")
-            task["subtitle_path"] = str(subtitle_path)
+            await subtitle_task_repository.update_task(
+                task_id,
+                subtitle_path=str(subtitle_path)
+            )
             
             logger.info(f"[{task_id}] Subtitles generated and saved")
             
         except Exception as e:
             logger.error(f"[{task_id}] Failed to generate subtitles: {e}")
-            task["status"] = SubtitleGenerationStatus.FAILED
-            task["error"] = f"Failed to generate subtitles: {str(e)}"
-            task["completed_at"] = datetime.now()
+            await subtitle_task_repository.update_task(
+                task_id,
+                status=SubtitleGenerationStatus.FAILED,
+                error=f"Failed to generate subtitles: {str(e)}",
+                completed=True
+            )
             return
         
         # Step 3: Hardcode subtitles if requested
         if request.hardcode or request.soft_subtitles:
-            task["status"] = SubtitleGenerationStatus.HARDCODING
-            task["progress"] = 70.0
+            await subtitle_task_repository.update_task(
+                task_id,
+                status=SubtitleGenerationStatus.HARDCODING,
+                progress=70.0
+            )
             logger.info(f"[{task_id}] Hardcoding subtitles into video...")
             
             try:
                 output_video_path = Path(settings.download_dir) / task_id / "video_with_subtitles.mp4"
                 
                 if request.hardcode:
-                    # Hardcode subtitles (re-encode video)
                     await subtitle_hardcoder.hardcode_subtitles(
                         video_path=video_path,
                         subtitle_path=str(subtitle_path),
@@ -293,7 +301,6 @@ async def _process_subtitle_generation(task_id: str, request: GenerateSubtitleRe
                         subtitle_format=subtitle_ext,
                     )
                 else:
-                    # Add soft subtitles (no re-encoding)
                     await subtitle_hardcoder.add_soft_subtitles(
                         video_path=video_path,
                         subtitle_path=str(subtitle_path),
@@ -301,25 +308,37 @@ async def _process_subtitle_generation(task_id: str, request: GenerateSubtitleRe
                         subtitle_format=subtitle_ext,
                     )
                 
-                task["video_with_subtitles_path"] = str(output_video_path)
-                task["progress"] = 90.0
+                await subtitle_task_repository.update_task(
+                    task_id,
+                    video_with_subtitles_path=str(output_video_path),
+                    progress=90.0
+                )
                 logger.info(f"[{task_id}] Video with subtitles created")
                 
             except Exception as e:
                 logger.error(f"[{task_id}] Failed to hardcode subtitles: {e}")
-                task["status"] = SubtitleGenerationStatus.FAILED
-                task["error"] = f"Failed to hardcode subtitles: {str(e)}"
-                task["completed_at"] = datetime.now()
+                await subtitle_task_repository.update_task(
+                    task_id,
+                    status=SubtitleGenerationStatus.FAILED,
+                    error=f"Failed to hardcode subtitles: {str(e)}",
+                    completed=True
+                )
                 return
         
         # Completed
-        task["status"] = SubtitleGenerationStatus.COMPLETED
-        task["progress"] = 100.0
-        task["completed_at"] = datetime.now()
+        await subtitle_task_repository.update_task(
+            task_id,
+            status=SubtitleGenerationStatus.COMPLETED,
+            progress=100.0,
+            completed=True
+        )
         logger.info(f"[{task_id}] Subtitle generation completed successfully")
         
     except Exception as e:
         logger.error(f"[{task_id}] Unexpected error: {e}")
-        task["status"] = SubtitleGenerationStatus.FAILED
-        task["error"] = f"Unexpected error: {str(e)}"
-        task["completed_at"] = datetime.now()
+        await subtitle_task_repository.update_task(
+            task_id,
+            status=SubtitleGenerationStatus.FAILED,
+            error=f"Unexpected error: {str(e)}",
+            completed=True
+        )

@@ -1,5 +1,6 @@
 """FastAPI application entry point with WebSocket support."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Dict, Set
@@ -12,6 +13,7 @@ from app.api.summarize import router as summarize_router
 from app.api.subtitle import router as subtitle_router
 from app.core.config import settings
 from app.services.task_manager import set_ws_manager
+from app.database import init_database, cleanup_expired_data
 
 # Configure logging
 logging.basicConfig(
@@ -20,6 +22,9 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# Background cleanup task
+_cleanup_task = None
 
 
 class ConnectionManager:
@@ -69,15 +74,50 @@ ws_manager = ConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
+    global _cleanup_task
+    
+    # Initialize database
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     logger.info(f"Download directory: {settings.download_dir.absolute()}")
+    
+    # Initialize SQLite database
+    try:
+        init_database()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
     
     # Connect WebSocket manager to task manager
     set_ws_manager(ws_manager)
     
+    # Start background cleanup task
+    _cleanup_task = asyncio.create_task(_run_cleanup())
+    
     yield
     
+    # Cancel cleanup task
+    if _cleanup_task:
+        _cleanup_task.cancel()
+        try:
+            await _cleanup_task
+        except asyncio.CancelledError:
+            pass
+    
     logger.info("Shutting down application")
+
+
+async def _run_cleanup():
+    """Background task to periodically clean up expired data."""
+    while True:
+        try:
+            await asyncio.sleep(3600)  # Run every hour
+            stats = cleanup_expired_data()
+            if any(stats.values()):
+                logger.info(f"Cleanup completed: {stats}")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
 
 
 # Create FastAPI application
