@@ -1,7 +1,12 @@
-import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PageType, VideoInfo, DownloadTask } from '../types';
 import { getVideoInfo, startDownload, getDownloadUrl } from '../services/api';
+
+interface UserInfo {
+  username: string;
+  email: string;
+}
 
 interface AppState {
   page: PageType;
@@ -17,6 +22,8 @@ interface AppState {
   error: string | null;
   loading: boolean;
   checkingUrls: boolean;
+  isLoggedIn: boolean;
+  userInfo: UserInfo | null;
 }
 
 interface AppContextType extends AppState {
@@ -32,6 +39,8 @@ interface AppContextType extends AppState {
   updateTasks: (tasks: DownloadTask[], completedFiles: { filename: string; title?: string }[]) => void;
   downloadFile: (filename: string) => void;
   reset: () => void;
+  setUser: (token: string, userInfo: UserInfo) => void;
+  logout: () => void;
 }
 
 const initialState: AppState = {
@@ -48,6 +57,8 @@ const initialState: AppState = {
   error: null,
   loading: false,
   checkingUrls: false,
+  isLoggedIn: false,
+  userInfo: null,
 };
 
 const routeMap: Record<PageType, string> = {
@@ -66,6 +77,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
   navigateRef.current = navigate;
 
   const [state, setState] = useState<AppState>(initialState);
+
+  // Check auth status on mount
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    const userInfoStr = localStorage.getItem('user_info');
+    if (token && userInfoStr) {
+      try {
+        const userInfo = JSON.parse(userInfoStr);
+        setState(prev => ({ ...prev, isLoggedIn: true, userInfo }));
+      } catch {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_info');
+      }
+    }
+  }, []);
+
+  const setUser = useCallback((token: string, userInfo: UserInfo) => {
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem('user_info', JSON.stringify(userInfo));
+    setState(prev => ({ ...prev, isLoggedIn: true, userInfo }));
+  }, []);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_info');
+    setState(prev => ({ ...prev, isLoggedIn: false, userInfo: null }));
+  }, []);
   // 用 ref 存最新值，避免闭包陷阱
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -215,6 +253,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateTasks,
       downloadFile,
       reset,
+      setUser,
+      logout,
     }}>
       {children}
     </AppContext.Provider>

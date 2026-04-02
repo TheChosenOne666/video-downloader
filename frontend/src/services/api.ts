@@ -150,4 +150,56 @@ export function getDownloadUrl(taskId: string, filename: string): string {
   return `${API_BASE}/download/${taskId}/${filename}`;
 }
 
+// ========== Auth API ==========
+
+export interface AuthResponse {
+  token: string;
+  username: string;
+  email: string;
+  expires_in: number;
+}
+
+export interface UserInfo {
+  id: string;
+  username: string;
+  email: string;
+  created_at: string;
+}
+
+export async function register(username: string, email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, email, password }),
+  });
+  return handleResponse<AuthResponse>(response);
+}
+
+export async function login(username: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  return handleResponse<AuthResponse>(response);
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+  });
+}
+
+export async function getCurrentUser(token: string): Promise<UserInfo> {
+  const response = await fetch(`${API_BASE}/auth/me?token=${encodeURIComponent(token)}`);
+  return handleResponse<UserInfo>(response);
+}
+
+export async function checkAuth(token: string): Promise<{ authenticated: boolean; username?: string; email?: string }> {
+  const response = await fetch(`${API_BASE}/auth/check?token=${encodeURIComponent(token)}`, {
+    method: 'POST',
+  });
+  return handleResponse<{ authenticated: boolean; username?: string; email?: string }>(response);
+}
+
 export { ApiError };

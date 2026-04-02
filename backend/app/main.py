@@ -11,9 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.download import router as download_router
 from app.api.summarize import router as summarize_router
 from app.api.subtitle import router as subtitle_router
+from app.api.auth import router as auth_router
 from app.core.config import settings
 from app.services.task_manager import set_ws_manager
 from app.database import init_database, cleanup_expired_data
+from app.services.auth_service import auth_service
 
 # Configure logging
 logging.basicConfig(
@@ -111,9 +113,20 @@ async def _run_cleanup():
     while True:
         try:
             await asyncio.sleep(3600)  # Run every hour
+            
+            # Clean up expired tasks
             stats = cleanup_expired_data()
             if any(stats.values()):
-                logger.info(f"Cleanup completed: {stats}")
+                logger.info(f"Task cleanup: {stats}")
+            
+            # Clean up expired sessions
+            try:
+                expired = auth_service.cleanup_expired_sessions()
+                if expired > 0:
+                    logger.info(f"Session cleanup: {expired} expired sessions removed")
+            except Exception as e:
+                logger.error(f"Session cleanup error: {e}")
+                
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -141,6 +154,7 @@ app.add_middleware(
 app.include_router(download_router)
 app.include_router(summarize_router)
 app.include_router(subtitle_router)
+app.include_router(auth_router)
 
 
 @app.get("/", tags=["health"])

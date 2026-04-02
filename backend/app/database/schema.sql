@@ -134,7 +134,36 @@ CREATE INDEX IF NOT EXISTS idx_video_cache_accessed ON video_cache(last_accessed
 CREATE INDEX IF NOT EXISTS idx_video_cache_expires ON video_cache(expires_at);
 
 -- ============================================================
+-- Users Table
+-- ============================================================
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,                    -- UUID user_id
+    username TEXT UNIQUE NOT NULL,          -- Unique username
+    email TEXT UNIQUE NOT NULL,            -- Unique email
+    password_hash TEXT NOT NULL,            -- SHA256 hash with salt
+    created_at TEXT NOT NULL,              -- ISO timestamp
+    last_login TEXT                         -- Last login timestamp
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- ============================================================
+-- Sessions Table
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,                    -- UUID session_id
+    user_id TEXT NOT NULL,                  -- Foreign key to users
+    token TEXT UNIQUE NOT NULL,              -- Session token (UUID format)
+    expires_at TEXT NOT NULL,               -- Expiration timestamp (30 days)
+    created_at TEXT NOT NULL,              -- ISO timestamp
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+
+-- ============================================================
 -- Cleanup Trigger (Auto-delete expired tasks)
 -- ============================================================
--- Note: Cleanup is handled by a background task for better control
--- The cleanup_task() function in database.py handles this
