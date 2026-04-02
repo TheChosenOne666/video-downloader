@@ -96,14 +96,9 @@ export default function ProgressPage() {
           <div className="glass-card p-4 mb-6 flex items-center gap-3 animate-slide-up" 
                style={{ backgroundColor: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
             <span className="text-2xl">⚠️</span>
-            <div>
-              <p className="text-sm font-medium" style={{ color: '#d97706' }}>
-                文件将在 <strong>7 天后过期删除</strong>，请及时下载到本地！
-              </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                数据保留策略：任务完成后仅保留 7 天，逾期自动清理以节省服务器资源
-              </p>
-            </div>
+            <p className="text-sm font-medium" style={{ color: '#d97706' }}>
+              文件将在 <strong>7 天后过期删除</strong>，请及时下载到本地！
+            </p>
           </div>
         )}
 

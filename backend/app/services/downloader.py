@@ -124,14 +124,10 @@ class VideoDownloader:
             # 'best' 是前端的选择器概念，不是 yt-dlp 的 format
             opts["format"] = format_id
         else:
-            # 方案：分别下载视频和音频轨道，不合并
-            # 用户可以后期用播放器播放或自行合并
-            # 优先级：仅视频（最高画质） > 仅音频
-            opts["format"] = (
-                "bestvideo[ext=mp4]/bestvideo/"  # 仅视频（最高画质）
-                "bestaudio/"  # 仅音频
-                "best"  # 最佳可用
-            )
+            # 使用 bestvideo+bestaudio 格式，确保视频和音频合并
+            # merge_output_format 确保输出为 mkv 格式（支持大多数视频+音频组合）
+            opts["format"] = "bestvideo+bestaudio/best"
+            opts["merge_output_format"] = "mkv"
         
         return opts
     
