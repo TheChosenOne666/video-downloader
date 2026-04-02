@@ -100,12 +100,17 @@ class VideoDownloader:
         audio_only: bool = False,
     ) -> dict:
         """Get yt-dlp options with anti-hotlinking and anti-cookie headers."""
+        import imageio_ffmpeg
+        ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+        
         opts = {
             "outtmpl": str(output_path / "%(id)s.%(ext)s"),  # 使用视频 ID 作为文件名，避免非法字符
             "quiet": True,
             "no_warnings": True,
             "progress_hooks": [progress.update],
             "noplaylist": True,  # Download only single video
+            # 指定 FFmpeg 路径（用于合并视频+音频）
+            "ffmpeg_location": ffmpeg_path,
             # Anti-hotlinking headers (防盗链绕过)
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
