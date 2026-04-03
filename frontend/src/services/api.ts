@@ -204,4 +204,31 @@ export async function checkAuth(token: string): Promise<{ authenticated: boolean
   return handleResponse<{ authenticated: boolean; username?: string; email?: string }>(response);
 }
 
+// ========== Profile API ==========
+
+export interface UpdateProfileData {
+  email?: string;
+  password?: string;
+  new_password?: string;
+}
+
+export async function updateProfile(token: string, data: UpdateProfileData): Promise<UserInfo> {
+  const response = await fetch(`${API_BASE}/auth/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ token, ...data }),
+  });
+  return handleResponse<UserInfo>(response);
+}
+
+export async function getProfile(token: string): Promise<UserInfo> {
+  const response = await fetch(`${API_BASE}/auth/profile?token=${encodeURIComponent(token)}`, {
+    method: 'GET',
+  });
+  return handleResponse<UserInfo>(response);
+}
+
 export { ApiError };

@@ -8,6 +8,8 @@ import SubtitleGenerationPage from './pages/SubtitleGenerationPage';
 import FAQPage from './pages/FAQPage';
 import TutorialPage from './pages/TutorialPage';
 import AuthPage from './pages/AuthPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Route path="/faq" element={<FAQPage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppProvider>

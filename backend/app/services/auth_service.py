@@ -428,6 +428,76 @@ class AuthService:
         
         return True, ""
 
+    def update_email(self, user_id: str, new_email: str) -> tuple[bool, str]:
+        """Update user email. Returns (success, error)."""
+        if not new_email or not self._validate_email(new_email):
+            return False, "邮箱格式不正确"
+        if self._email_exists(new_email):
+            return False, "该邮箱已被使用"
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET email = ? WHERE id = ?", (new_email, user_id))
+            conn.commit()
+            return True, ""
+        finally:
+            conn.close()
+
+    def update_password(self, user_id: str, current_password: str, new_password: str) -> tuple[bool, str]:
+        """Update user password. Returns (success, error)."""
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return False, "用户不存在"
+        # Verify current password
+        if self._hash_password(current_password) != user.password_hash:
+            return False, "当前密码错误"
+        if len(new_password) < 6:
+            return False, "新密码至少6个字符"
+        new_hash = self._hash_password(new_password)
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user_id))
+            conn.commit()
+            return True, ""
+        finally:
+            conn.close()
+
+    def _validate_email(self, email: str) -> bool:
+        """Check email format."""
+        import re
+        return bool(re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", email))
+
+    def _email_exists(self, email: str) -> bool:
+        """Check if email is already used by another user."""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+            return cursor.fetchone() is not None
+        finally:
+            conn.close()
+
+    def delete_user(self, user_id: str, password: str) -> tuple[bool, str]:
+        """Delete user account. Returns (success, error)."""
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return False, "用户不存在"
+        if self._hash_password(password) != user.password_hash:
+            return False, "密码错误"
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            cursor = conn.cursor()
+            # Delete sessions first
+            cursor.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+            # Delete user
+            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+            return True, ""
+        finally:
+            conn.close()
+
 
 # Global auth service instance
 auth_service = AuthService()

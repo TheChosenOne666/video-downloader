@@ -234,6 +234,127 @@ def require_permission(permission: Permission):
     return check_permission
 
 
+class UpdateProfileRequest(BaseModel):
+    token: str | None = None  # optional token in body
+    email: str | None = None
+    password: str | None = None
+    new_password: str | None = None
+
+
+class UserInfo(BaseModel):
+    id: str
+    username: str
+    email: str
+    role: str
+    created_at: str
+
+
+def get_client_ip(request: Request) -> str:
+    """Get client IP address."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def get_token_from_request(request: Request) -> str | None:
+    """Extract token from query param or header."""
+    # Try query parameter first
+    token = request.query_params.get("token")
+    if token:
+        return token
+    # Try Authorization header
+    auth = request.headers.get("Authorization")
+    if auth and auth.startswith("Bearer "):
+        return auth[7:]
+    return None
+
+
+@router.get("/profile", response_model=UserInfo)
+async def get_profile(request: Request):
+    """Get user profile."""
+    token = get_token_from_request(request)
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="请先登录"
+        )
+
+    user = auth_service.get_current_user(token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="登录已过期，请重新登录"
+        )
+
+    return UserInfo(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        role=user.role,
+        created_at=user.created_at
+    )
+
+
+@router.put("/profile", response_model=UserInfo)
+async def update_profile(request: Request, req: UpdateProfileRequest):
+    """Update user profile (email or password)."""
+    # Get token from header or body
+    token = get_token_from_request(request) or req.token
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="请先登录"
+        )
+
+    user = auth_service.get_current_user(token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="登录已过期，请重新登录"
+        )
+
+    # Update email
+    if req.email:
+        ok, error = auth_service.update_email(user.id, req.email)
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error
+            )
+
+    # Update password
+    if req.password and req.new_password:
+        ok, error = auth_service.update_password(
+            user_id=user.id,
+            current_password=req.password,
+            new_password=req.new_password
+        )
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error
+            )
+
+    # Return updated user
+    updated_user = auth_service.get_user_by_id(user.id)
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取用户信息失败"
+        )
+
+    return UserInfo(
+        id=updated_user.id,
+        username=updated_user.username,
+        email=updated_user.email,
+        role=updated_user.role,
+        created_at=updated_user.created_at
+    )
+
+
 # Example of protected route:
 # @router.post("/admin-only")
 # async def admin_route(token: str = Depends(require_permission(Permission.ADMIN))):

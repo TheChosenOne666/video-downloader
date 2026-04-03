@@ -16,18 +16,26 @@ import Testimonials from '../components/Testimonials';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize, downloadMode } = useApp();
+  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize, downloadMode, isLoggedIn } = useApp();
 
   // 检查是否解析完成（有视频信息）
   const hasVideoInfo = videoInfos.length > 0;
 
   // 解析视频 - 直接读取输入框内容
   const handleParse = async () => {
+    if (!isLoggedIn) {
+      navigate('/auth');
+      return;
+    }
     await checkUrls();
   };
 
   // 开始下载 - 先导航再调用下载逻辑
   const handleStartDownload = async () => {
+    if (!isLoggedIn) {
+      navigate('/auth');
+      return;
+    }
     // 先导航到进度页面
     navigate('/progress');
     // 然后启动下载
@@ -36,6 +44,10 @@ export default function HomePage() {
 
   // AI 总结 - 先导航再更新状态
   const handleGoToSummarize = () => {
+    if (!isLoggedIn) {
+      navigate('/auth');
+      return;
+    }
     navigate('/summarize');
     goToSummarize();
   };
@@ -100,6 +112,29 @@ export default function HomePage() {
           />
           
           <div className="glass-card p-6 md:p-8 relative">
+            {/* 未登录提示 */}
+            {!isLoggedIn && (
+              <div className="mb-6 p-4 rounded-xl animate-slide-up flex items-start gap-4" 
+                   style={{ backgroundColor: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
+                <span className="text-2xl flex-shrink-0">🔒</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium" style={{ color: '#d97706' }}>
+                    请先登录后再使用功能
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    登录后可解锁视频解析、下载、AI总结等功能
+                  </p>
+                  <button
+                    onClick={() => navigate('/auth')}
+                    className="mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105"
+                    style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
+                  >
+                    立即登录
+                  </button>
+                </div>
+              </div>
+            )}
+            
             <URLInput />
             
             {/* Video Preview - Shows after parsing */}

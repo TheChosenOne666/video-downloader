@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { register, login } from '../services/api';
 import SEO from '../components/SEO';
@@ -111,14 +111,14 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              用户名
+              账号
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="input-glow"
-              placeholder="输入用户名"
+              placeholder="输入账号"
               required
               minLength={3}
               maxLength={20}
@@ -184,17 +184,6 @@ export default function AuthPage() {
           )}
         </div>
 
-        {/* Demo account */}
-        {isLogin && (
-          <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--color-surface-lighter)' }}>
-            <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              演示账号（可直接登录）
-            </p>
-            <p className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>
-              用户名: user1 &nbsp;|&nbsp; 密码: test123
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
