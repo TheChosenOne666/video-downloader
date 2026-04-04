@@ -105,7 +105,7 @@ class VideoDownloader:
         
         opts = {
             "outtmpl": str(output_path / "%(id)s.%(ext)s"),  # 使用视频 ID 作为文件名，避免非法字符
-            "quiet": True,
+            "quiet": True, "socket_timeout": 60,
             "no_warnings": True,
             "progress_hooks": [progress.update],
             "noplaylist": True,  # Download only single video
@@ -148,7 +148,7 @@ class VideoDownloader:
         def _extract() -> dict:
             # Anti-cookie-bypass options for platforms like Douyin
             opts = {
-                "quiet": True,
+                "quiet": True, "socket_timeout": 60,
                 "no_warnings": True,
                 "extract_flat": False,
                 # Anti-cookie bypass strategies
