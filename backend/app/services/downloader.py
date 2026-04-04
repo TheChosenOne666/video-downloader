@@ -271,6 +271,20 @@ class VideoDownloader:
             loop = asyncio.get_event_loop()
             filename = await loop.run_in_executor(None, _download)
             
+            # Fix filename - handle .part files and other incomplete downloads
+            if filename.endswith('.part') or not filename:
+                logger.warning(f"Invalid filename detected: {filename}, searching for actual file")
+                # Find actual video files in the directory
+                video_files = [
+                    f.name for f in task_dir.iterdir() 
+                    if f.suffix in ['.mp4', '.mkv', '.webm', '.flv'] and not f.name.endswith('.part')
+                ]
+                if video_files:
+                    filename = video_files[0]
+                    logger.info(f"Found actual file: {filename}")
+                else:
+                    logger.error(f"No valid video file found in {task_dir}")
+            
             # Update progress to 100% after download completes
             status.progress = progress.progress if progress.progress > 0 else 100.0
             
