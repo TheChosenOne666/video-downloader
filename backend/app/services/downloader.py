@@ -271,6 +271,9 @@ class VideoDownloader:
             loop = asyncio.get_event_loop()
             filename = await loop.run_in_executor(None, _download)
             
+            # Update progress to 100% after download completes
+            status.progress = progress.progress if progress.progress > 0 else 100.0
+            
             # === With subtitle: generate and hardcode ===
             if with_subtitle and not audio_only:
                 logger.info(f"Generating subtitles for: {filename}")
