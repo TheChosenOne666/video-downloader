@@ -13,10 +13,38 @@ import SupportedPlatforms from '../components/SupportedPlatforms';
 import HowToUse from '../components/HowToUse';
 import AdvancedFeatures from '../components/AdvancedFeatures';
 import Testimonials from '../components/Testimonials';
+import { checkDownloadLimit } from '../services/membership';
+import { useState, useEffect } from 'react';
+
+interface DownloadLimitInfo {
+  can_download: boolean;
+  message: string;
+  daily_used: number;
+  daily_limit: number;
+  is_vip: boolean;
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize, downloadMode, isLoggedIn } = useApp();
+  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize, downloadMode, isLoggedIn, userInfo } = useApp();
+  const [downloadLimit, setDownloadLimit] = useState<DownloadLimitInfo | null>(null);
+  const [isVip, setIsVip] = useState(false);
+
+  // 检查下载限制
+  useEffect(() => {
+    if (isLoggedIn) {
+      checkDownloadLimit().then(limit => {
+        setDownloadLimit(limit);
+        setIsVip(limit.is_vip);
+      }).catch(() => {
+        setDownloadLimit({ can_download: true, message: '', daily_used: 0, daily_limit: 2, is_vip: false });
+        setIsVip(false);
+      });
+    } else {
+      setDownloadLimit(null);
+      setIsVip(false);
+    }
+  }, [isLoggedIn]);
 
   // 检查是否解析完成（有视频信息）
   const hasVideoInfo = videoInfos.length > 0;
@@ -36,10 +64,23 @@ export default function HomePage() {
       navigate('/auth');
       return;
     }
+    
+    // 检查下载限制
+    if (downloadLimit && !downloadLimit.can_download) {
+      // 超过限制，提示升级
+      if (confirm('今日下载次数已用完，是否升级VIP享受无限下载？')) {
+        navigate('/pricing');
+      }
+      return;
+    }
+    
     // 先导航到进度页面
     navigate('/progress');
     // 然后启动下载
     await startDownloading();
+    
+    // 下载成功后刷新限制
+    checkDownloadLimit().then(setDownloadLimit);
   };
 
   // AI 总结 - 先导航再更新状态
@@ -134,6 +175,59 @@ export default function HomePage() {
                 </div>
               </div>
             )}
+
+            {/* 登录后显示下载次数提示 */}
+            {isLoggedIn && downloadLimit && !isVip && (
+              <div className="mb-6 p-4 rounded-xl animate-slide-up flex items-center gap-4" 
+                   style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                <span className="text-2xl flex-shrink-0">📊</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>
+                    今日免费下载次数
+                  </p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-surface-light)' }}>
+                      <div 
+                        className="h-full rounded-full transition-all"
+                        style={{ 
+                          width: `${Math.min(100, (downloadLimit.daily_used / downloadLimit.daily_limit) * 100)}%`,
+                          backgroundColor: downloadLimit.daily_used >= downloadLimit.daily_limit ? 'var(--color-error)' : 'var(--color-primary)'
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium" style={{ color: downloadLimit.daily_used >= downloadLimit.daily_limit ? 'var(--color-error)' : 'var(--color-text-primary)' }}>
+                      {downloadLimit.daily_limit - downloadLimit.daily_used} / {downloadLimit.daily_limit}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    升级VIP享受无限次下载 + AI视频总结
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 flex-shrink-0"
+                  style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
+                >
+                  升级VIP
+                </button>
+              </div>
+            )}
+
+            {/* VIP用户提示 */}
+            {isLoggedIn && isVip && (
+              <div className="mb-6 p-4 rounded-xl animate-slide-up flex items-center gap-4" 
+                   style={{ backgroundColor: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                <span className="text-2xl flex-shrink-0">👑</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium" style={{ color: '#a855f7' }}>
+                    VIP会员特权
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    无限次下载 + AI视频总结 + 思维导图 + 智能问答
+                  </p>
+                </div>
+              </div>
+            )}
             
             <URLInput />
             
@@ -206,22 +300,45 @@ export default function HomePage() {
             {/* AI Summary Button - Only enabled after parsing */}
             {hasVideoInfo && (
               <div className="mt-4">
-                <button
-                  onClick={handleGoToSummarize}
-                  disabled={!hasVideoInfo || checkingUrls}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed group"
-                  style={{ 
-                    background: 'linear-gradient(135deg, var(--color-purple) 0%, #c084fc 100%)',
-                    color: '#ffffff'
-                  }}
-                >
-                  <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  AI 视频总结
-                </button>
+                {isVip ? (
+                  <button
+                    onClick={handleGoToSummarize}
+                    disabled={!hasVideoInfo || checkingUrls}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed group"
+                    style={{ 
+                      background: 'linear-gradient(135deg, var(--color-purple) 0%, #c084fc 100%)',
+                      color: '#ffffff'
+                    }}
+                  >
+                    <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    AI 视频总结
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate('/pricing')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 font-medium relative overflow-hidden"
+                    style={{ 
+                      background: 'linear-gradient(135deg, var(--color-purple) 0%, #c084fc 100%)',
+                      color: '#ffffff'
+                    }}
+                  >
+                    {/* VIP badge */}
+                    <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold" style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}>
+                      VIP
+                    </span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    AI 视频总结（仅VIP）
+                  </button>
+                )}
                 <p className="text-xs text-center mt-2" style={{ color: 'var(--color-text-muted)' }}>
-                  基于 AI 分析视频内容，生成摘要、字幕、思维导图和智能问答
+                  {isVip 
+                    ? '基于 AI 分析视频内容，生成摘要、字幕、思维导图和智能问答'
+                    : 'AI视频总结功能仅对VIP会员开放，升级后即可使用'
+                  }
                 </p>
               </div>
             )}
@@ -236,6 +353,110 @@ export default function HomePage() {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* VIP会员特权对比 */}
+        <div className="mt-12 animate-slide-up">
+          <h2 className="text-2xl font-bold text-center mb-8" style={{ color: 'var(--color-text-primary)' }}>
+            <span className="text-gradient">会员特权</span>对比
+          </h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* 免费用户 */}
+            <div className="glass-card p-6 relative overflow-hidden" style={{ border: '2px solid var(--color-surface-dark)' }}>
+              <div className="absolute top-0 right-0 w-20 h-20 opacity-10">
+                <svg viewBox="0 0 100 100" fill="currentColor" style={{ color: 'var(--color-text-muted)' }}>
+                  <circle cx="50" cy="50" r="50" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--color-text-secondary)' }}>免费用户</h3>
+              <ul className="space-y-3">
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>每日2次视频下载</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>基础视频解析</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>480P视频质量</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-red-500">✗</span>
+                  <span style={{ color: 'var(--color-text-muted)' }}>AI视频总结</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-red-500">✗</span>
+                  <span style={{ color: 'var(--color-text-muted)' }}>思维导图生成</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-red-500">✗</span>
+                  <span style={{ color: 'var(--color-text-muted)' }}>AI智能问答</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-red-500">✗</span>
+                  <span style={{ color: 'var(--color-text-muted)' }}>高清画质下载</span>
+                </li>
+              </ul>
+              <div className="mt-6 text-center">
+                <span className="text-2xl font-bold" style={{ color: 'var(--color-text-muted)' }}>免费</span>
+              </div>
+            </div>
+
+            {/* VIP会员 */}
+            <div className="glass-card p-6 relative overflow-hidden" style={{ border: '2px solid var(--color-primary)' }}>
+              {/* VIP 标签 */}
+              <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 px-4 py-1 rounded-b-lg text-xs font-bold text-white" style={{ backgroundColor: 'var(--color-primary)' }}>
+                推荐
+              </div>
+              <div className="absolute top-0 right-0 w-20 h-20 opacity-10">
+                <svg viewBox="0 0 100 100" fill="currentColor" style={{ color: 'var(--color-primary)' }}>
+                  <circle cx="50" cy="50" r="50" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--color-primary)' }}>👑 VIP会员</h3>
+              <ul className="space-y-3">
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-primary)' }}>无限次视频下载</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-primary)' }}>完整视频解析</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-primary)' }}>4K超清画质</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-primary)' }}>AI视频总结</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-primary)' }}>思维导图生成</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-primary)' }}>AI智能问答</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-500">✓</span>
+                  <span style={{ color: 'var(--color-text-primary)' }}>字幕生成导出</span>
+                </li>
+              </ul>
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="w-full py-3 rounded-lg font-bold text-white transition-all hover:scale-105"
+                  style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-purple) 100%)' }}
+                >
+                  立即开通 ¥19.9/月
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

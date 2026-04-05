@@ -1,6 +1,6 @@
 # VideoGrab 功能清单
 
-**项目版本**: v2.3  
+**项目版本**: v2.4  
 **最后更新**: 2026-04-05
 
 ---
@@ -26,95 +26,41 @@
 
 ---
 
-### 2. 批量下载
+### 2. 会员系统与权限控制
 
-- 支持多个视频同时下载
-- 并发控制（默认 3 个并发）
-- 实时进度追踪
+#### 每日免费次数限制
+- **免费用户**：每日 2 次视频下载
+- **VIP 用户**：无限次下载
+- 超过限制时提示升级 VIP
 
----
+#### VIP 专属功能
+- AI 视频总结（需 VIP）
+- 思维导图生成（需 VIP）
+- AI 智能问答（需 VIP）
+- 高清画质下载（4K/1080P）
 
-### 3. 下载模式选择
+#### 权限验证
+- **前端**：按钮禁用 + VIP 标识
+- **后端**：API 级别权限校验
 
-用户可选择两种下载模式：
-
-#### 原视频模式
-- 直接下载原始视频文件
-- 速度快，无额外处理
-
-#### 带字幕模式
-- 下载视频后自动调用 **Whisper AI** 生成字幕
-- 使用 **FFmpeg** 将字幕硬编码到视频中
-- 输出 `xxx_subtitled.mp4` 文件
-
-**技术实现**:
-- `whisper_subtitle_generator.py` - Faster-Whisper 语音识别
-- `subtitle_hardcoder.py` - FFmpeg 字幕烧录
-- 需要 FFmpeg 环境
+#### 会员对比展示
+首页展示免费用户与 VIP 会员特权对比，引导用户升级。
 
 ---
 
-## 会员系统功能
+### 3. 支付流程
 
-### 功能入口
-首页导航栏 → 「会员」按钮 → PricingPage
-
-### 会员套餐
+#### 会员套餐
 
 | 套餐 | 价格 | 有效期 | 特权 |
 |------|------|--------|------|
-| 普通用户 | 免费 | 永久 | 基础下载功能 |
-| 月度 VIP | ¥19.9/月 | 30 天 | 高清下载 + AI 总结 |
-| 年度 VIP | ¥99.9/年 | 365 天 | 全部功能 + 优先支持 |
-| 终身 VIP | ¥299 | 永久 | 全部功能 + 终身更新 |
+| 免费版 | 免费 | 永久 | 每日2次下载 |
+| 月度 VIP | ¥29/月 | 30 天 | 无限下载 + AI总结 |
+| 年度 VIP | ¥199/年 | 365 天 | 全部功能 + 专属客服 |
+| 终身 VIP | ¥499 | 永久 | 全部功能 + 终身更新 |
 
-### 支付流程
-
-1. **选择套餐** - 在 PricingPage 选择会员套餐
-2. **确认订单** - 跳转 PaymentPage 显示订单详情
-3. **选择支付方式** - 微信支付 / 支付宝（模拟支付）
-4. **完成支付** - 支付成功后自动激活会员
-5. **个人中心** - 在 ProfilePage 查看会员状态
-
-### 技术架构
-
-```
-前端
-├── PricingPage.tsx      # 套餐展示页面
-├── PaymentPage.tsx      # 支付确认页面
-├── ProfilePage.tsx      # 个人中心（会员状态）
-└── services/membership.ts  # 会员 API 封装
-
-后端
-├── api/membership.py       # 会员 API 路由
-├── services/membership_service.py  # 会员服务
-└── models/                 # 数据模型
-    ├── membership_plan.py
-    ├── user_subscription.py
-    └── order.py
-
-数据库
-├── membership_plans      # 会员套餐表
-├── user_subscriptions    # 用户订阅表
-└── orders               # 订单表
-```
-
-### API 端点
-
-```
-GET  /api/membership/plans           # 获取所有套餐
-GET  /api/membership/subscription    # 获取当前用户订阅
-POST /api/membership/orders          # 创建订单
-GET  /api/membership/orders          # 获取用户订单列表
-GET  /api/membership/orders/{id}     # 获取订单详情
-POST /api/membership/orders/{id}/mock-pay  # 模拟支付
-```
-
-### 支付图标
-
-使用 `simple-icons` 库提供的官方品牌图标：
-- 微信支付：绿色 #07C160，官方微信 logo
-- 支付宝：蓝色 #1677FF，官方支付宝 logo
+#### 支付流程
+1. 选择套餐 → 2. 确认订单 → 3. 选择支付方式（微信/支付宝） → 4. 模拟支付 → 5. 开通成功
 
 ---
 
@@ -391,10 +337,10 @@ WHISPER_DEVICE=cpu
 
 ## 后续规划
 
-### v2.4 计划
+### v2.5 计划
 - [ ] 真实支付接入（微信/支付宝）
-- [ ] 会员权益细化
 - [ ] 下载历史记录
+- [ ] 会员升级/降级
 
 ### v3.0 计划
 - [ ] 云存储上传

@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, Optional, AsyncGenerator
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Header
 from fastapi.responses import StreamingResponse
 
 from app.models.schemas import (
@@ -26,10 +26,33 @@ from app.models.schemas import (
 from app.database import summarize_repository
 from app.services.subtitle_extractor import subtitle_extractor
 from app.services.ai_summarizer import ai_summarizer
+from app.services.auth_service import auth_service
+from app.services.membership_service import membership_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/summarize", tags=["summarize"])
+
+
+async def check_vip_access(authorization: Optional[str] = Header(None)) -> tuple[bool, Optional[dict]]:
+    """
+    Check if user has VIP access.
+    Returns (has_access, user_info)
+    """
+    if not authorization:
+        return False, None
+    
+    token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+    user = auth_service.get_current_user(token)
+    
+    if not user:
+        return False, None
+    
+    # Check subscription
+    subscription = await membership_service.get_user_subscription(user.id)
+    has_vip = subscription is not None
+    
+    return has_vip, {"id": user.id, "username": user.username, "role": user.role, "is_vip": has_vip}
 
 # In-memory storage for chat histories (lightweight, can be extended to DB if needed)
 chat_histories: Dict[str, list] = {}
@@ -273,10 +296,18 @@ async def extract_subtitle_sync(request: SummarizeRequest):
 @router.post(
     "/stream/summary",
     summary="Stream video summary",
-    description="Stream AI-generated video summary using Server-Sent Events.",
+    description="Stream AI-generated video summary using Server-Sent Events. VIP only.",
 )
-async def stream_summary(request: SummarizeRequest):
-    """Stream video summary generation."""
+async def stream_summary(request: SummarizeRequest, authorization: Optional[str] = Header(None)):
+    """Stream video summary generation. VIP only."""
+    # Check VIP access
+    has_vip, user_info = await check_vip_access(authorization)
+    if not has_vip:
+        return StreamingResponse(
+            _stream_error_generator("AI视频总结功能仅对VIP会员开放，请先开通会员"),
+            media_type="text/event-stream"
+        )
+    
     try:
         subtitle_text, _, video_info = await subtitle_extractor.extract_subtitle(
             request.video_url
@@ -315,10 +346,18 @@ async def stream_summary(request: SummarizeRequest):
 @router.post(
     "/stream/mindmap",
     summary="Stream mind map",
-    description="Stream AI-generated mind map using Server-Sent Events.",
+    description="Stream AI-generated mind map using Server-Sent Events. VIP only.",
 )
-async def stream_mindmap(request: SummarizeRequest):
-    """Stream mind map generation."""
+async def stream_mindmap(request: SummarizeRequest, authorization: Optional[str] = Header(None)):
+    """Stream mind map generation. VIP only."""
+    # Check VIP access
+    has_vip, user_info = await check_vip_access(authorization)
+    if not has_vip:
+        return StreamingResponse(
+            _stream_error_generator("思维导图功能仅对VIP会员开放，请先开通会员"),
+            media_type="text/event-stream"
+        )
+    
     try:
         subtitle_text, _, video_info = await subtitle_extractor.extract_subtitle(
             request.video_url
@@ -357,14 +396,23 @@ async def stream_mindmap(request: SummarizeRequest):
 @router.post(
     "/stream/chat",
     summary="Stream chat response",
-    description="Stream AI answer to question using Server-Sent Events.",
+    description="Stream AI answer to question using Server-Sent Events. VIP only.",
 )
 async def stream_chat(
     request: ChatRequest,
     task_id: Optional[str] = None,
-    video_url: Optional[str] = None
+    video_url: Optional[str] = None,
+    authorization: Optional[str] = Header(None)
 ):
-    """Stream chat response. Supports both task_id and direct video_url."""
+    """Stream chat response. VIP only."""
+    # Check VIP access
+    has_vip, user_info = await check_vip_access(authorization)
+    if not has_vip:
+        return StreamingResponse(
+            _stream_error_generator("AI问答功能仅对VIP会员开放，请先开通会员"),
+            media_type="text/event-stream"
+        )
+    
     try:
         subtitle_text = ""
 

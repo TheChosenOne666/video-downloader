@@ -6,6 +6,7 @@ import { seoConfig } from '../config/seo';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MindmapGraph from '../components/MindmapGraph';
+import { getMySubscription } from '../services/membership';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -27,11 +28,13 @@ interface CardState {
 type TabType = 'summary' | 'titleinfo' | 'mindmap' | 'chat';
 
 export default function SummarizePage() {
-  const { videoUrl } = useApp();
+  const { videoUrl, isLoggedIn } = useApp();
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isVip, setIsVip] = useState(false);
+  const [checkingVip, setCheckingVip] = useState(true);
 
   const [summaryCard, setSummaryCard] = useState<CardState>({ status: 'idle', content: '' });
   const [mindmapCard, setMindmapCard] = useState<CardState>({ status: 'idle', content: '' });
@@ -40,6 +43,25 @@ export default function SummarizePage() {
   const [chatHistory, setChatHistory] = useState<Array<{ role: string; content: string }>>([]);
   const [isMindmapFullscreen, setIsMindmapFullscreen] = useState(false);
   const mindmapRef = useRef<HTMLDivElement>(null);
+
+  // 检查VIP状态
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setCheckingVip(false);
+      setIsVip(false);
+      return;
+    }
+    
+    getMySubscription()
+      .then(sub => {
+        setIsVip(sub.plan_id !== 'free' && sub.is_active);
+        setCheckingVip(false);
+      })
+      .catch(() => {
+        setIsVip(false);
+        setCheckingVip(false);
+      });
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (!videoUrl) {
@@ -351,6 +373,65 @@ export default function SummarizePage() {
       alert('导出 SVG 失败，请重试');
     }
   };
+
+  if (checkingVip) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <SEO config={seoConfig['/summarize']} />
+        <Header />
+        <div className="flex items-center justify-center flex-1">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--color-primary)' }}></div>
+            <p style={{ color: 'var(--color-text-muted)' }}>检查会员状态...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isVip) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <SEO config={seoConfig['/summarize']} />
+        <Header />
+        <div className="flex items-center justify-center flex-1">
+          <div className="text-center max-w-md mx-auto px-4">
+            <div className="text-6xl mb-6">👑</div>
+            <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+              AI视频总结仅对VIP会员开放
+            </h2>
+            <p className="mb-6" style={{ color: 'var(--color-text-secondary)' }}>
+              开通VIP会员即可享受无限次AI视频总结、思维导图生成、AI智能问答等功能。
+            </p>
+            <div className="glass-card p-6 mb-6 text-left">
+              <h3 className="font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>VIP会员特权</h3>
+              <ul className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 无限次AI视频总结</li>
+                <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 思维导图自动生成</li>
+                <li className="flex items-center gap-2"><span className="text-green-500">✓</span> AI智能问答互动</li>
+                <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 字幕生成与导出</li>
+                <li className="flex items-center gap-2"><span className="text-green-500">✓</span> 无限次视频下载</li>
+              </ul>
+            </div>
+            <button
+              onClick={() => window.location.href = '/pricing'}
+              className="w-full py-3 rounded-lg font-bold text-white transition-all hover:scale-105"
+              style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-purple) 100%)' }}
+            >
+              立即开通VIP ¥19.9/月
+            </button>
+            <button
+              onClick={() => window.history.back()}
+              className="mt-3 text-sm"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              返回上一页
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
