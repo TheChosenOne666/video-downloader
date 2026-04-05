@@ -196,20 +196,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const formatParam = current.selectedFormat === 'best' ? null : current.selectedFormat;
       const isAudioOnly = current.selectedFormat === 'audio';
 
-      const response = await startDownload(
-        current.urls,
-        formatParam || undefined,
-        current.downloadMode === 'subtitled',
-        isAudioOnly,
-      );
+      const response = await startDownload(current.urls, {
+        formatId: formatParam || undefined,
+        withSubtitle: current.downloadMode === 'subtitled',
+        audioOnly: isAudioOnly,
+      });
 
       setState(prev => ({
         ...prev,
-        taskId: response.taskId,
+        taskId: response.task_id,
         loading: false,
       }));
 
-      console.log('[AppContext] Download task created:', response.taskId);
+      console.log('[AppContext] Download task created:', response.task_id);
     } catch (err) {
       console.error('[AppContext] Download error:', err);
       setState(prev => ({

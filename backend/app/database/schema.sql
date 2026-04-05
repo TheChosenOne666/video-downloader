@@ -166,5 +166,80 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
 -- ============================================================
+-- Membership Plans Table (VIP Packages)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS membership_plans (
+    id TEXT PRIMARY KEY,                    -- Plan ID: free/monthly/yearly/lifetime
+    name TEXT NOT NULL,                     -- Display name
+    description TEXT,                       -- Plan description
+    price_cents INTEGER NOT NULL,           -- Price in cents (CNY)
+    duration_days INTEGER,                  -- VIP duration in days (NULL for lifetime)
+    daily_download_limit INTEGER DEFAULT 3, -- Daily download limit
+    features TEXT NOT NULL,                 -- JSON array of features
+    is_active INTEGER DEFAULT 1,            -- Boolean: is plan available
+    sort_order INTEGER DEFAULT 0,           -- Display order
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_membership_plans_active ON membership_plans(is_active);
+
+-- ============================================================
+-- Orders Table (Payment Orders)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY,                    -- Order ID (UUID)
+    user_id TEXT NOT NULL,                  -- Foreign key to users
+    plan_id TEXT NOT NULL,                  -- Foreign key to membership_plans
+    amount_cents INTEGER NOT NULL,          -- Payment amount in cents
+    status TEXT NOT NULL DEFAULT 'pending', -- pending/paid/failed/cancelled
+    pay_method TEXT,                        -- Payment method (mock)
+    idempotency_key TEXT UNIQUE,            -- Idempotency key for duplicate prevention
+    paid_at TEXT,                           -- Payment completion time
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (plan_id) REFERENCES membership_plans(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_idempotency ON orders(idempotency_key);
+
+-- ============================================================
+-- User Subscriptions Table (Active VIP Status)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+    id TEXT PRIMARY KEY,                    -- Subscription ID
+    user_id TEXT UNIQUE NOT NULL,           -- One active subscription per user
+    order_id TEXT NOT NULL,                 -- Reference to order
+    plan_id TEXT NOT NULL,                  -- Reference to plan
+    expires_at TEXT,                        -- VIP expiration (NULL=lifetime)
+    is_active INTEGER DEFAULT 1,            -- Boolean: is subscription active
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (plan_id) REFERENCES membership_plans(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user ON user_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_expires ON user_subscriptions(expires_at);
+
+-- ============================================================
+-- User Daily Download Stats (For download limit tracking)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_daily_stats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    date TEXT NOT NULL,                     -- Date in YYYY-MM-DD format
+    download_count INTEGER DEFAULT 0,       -- Downloads today
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(user_id, date),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_daily_stats_user_date ON user_daily_stats(user_id, date);
+
+-- ============================================================
 -- Cleanup Trigger (Auto-delete expired tasks)
 -- ============================================================

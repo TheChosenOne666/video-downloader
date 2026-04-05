@@ -10,6 +10,8 @@ import TutorialPage from './pages/TutorialPage';
 import AuthPage from './pages/AuthPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
+import PricingPage from './pages/PricingPage';
+import PaymentPage from './pages/PaymentPage';
 
 function App() {
   return (
@@ -25,6 +27,8 @@ function App() {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/payment" element={<PaymentPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppProvider>

@@ -1,7 +1,7 @@
 # VideoGrab 功能清单
 
-**项目版本**: v2.2  
-**最后更新**: 2026-03-31
+**项目版本**: v2.3  
+**最后更新**: 2026-04-05
 
 ---
 
@@ -51,6 +51,95 @@
 - `whisper_subtitle_generator.py` - Faster-Whisper 语音识别
 - `subtitle_hardcoder.py` - FFmpeg 字幕烧录
 - 需要 FFmpeg 环境
+
+---
+
+## 会员系统功能
+
+### 功能入口
+首页导航栏 → 「会员」按钮 → PricingPage
+
+### 会员套餐
+
+| 套餐 | 价格 | 有效期 | 特权 |
+|------|------|--------|------|
+| 普通用户 | 免费 | 永久 | 基础下载功能 |
+| 月度 VIP | ¥19.9/月 | 30 天 | 高清下载 + AI 总结 |
+| 年度 VIP | ¥99.9/年 | 365 天 | 全部功能 + 优先支持 |
+| 终身 VIP | ¥299 | 永久 | 全部功能 + 终身更新 |
+
+### 支付流程
+
+1. **选择套餐** - 在 PricingPage 选择会员套餐
+2. **确认订单** - 跳转 PaymentPage 显示订单详情
+3. **选择支付方式** - 微信支付 / 支付宝（模拟支付）
+4. **完成支付** - 支付成功后自动激活会员
+5. **个人中心** - 在 ProfilePage 查看会员状态
+
+### 技术架构
+
+```
+前端
+├── PricingPage.tsx      # 套餐展示页面
+├── PaymentPage.tsx      # 支付确认页面
+├── ProfilePage.tsx      # 个人中心（会员状态）
+└── services/membership.ts  # 会员 API 封装
+
+后端
+├── api/membership.py       # 会员 API 路由
+├── services/membership_service.py  # 会员服务
+└── models/                 # 数据模型
+    ├── membership_plan.py
+    ├── user_subscription.py
+    └── order.py
+
+数据库
+├── membership_plans      # 会员套餐表
+├── user_subscriptions    # 用户订阅表
+└── orders               # 订单表
+```
+
+### API 端点
+
+```
+GET  /api/membership/plans           # 获取所有套餐
+GET  /api/membership/subscription    # 获取当前用户订阅
+POST /api/membership/orders          # 创建订单
+GET  /api/membership/orders          # 获取用户订单列表
+GET  /api/membership/orders/{id}     # 获取订单详情
+POST /api/membership/orders/{id}/mock-pay  # 模拟支付
+```
+
+### 支付图标
+
+使用 `simple-icons` 库提供的官方品牌图标：
+- 微信支付：绿色 #07C160，官方微信 logo
+- 支付宝：蓝色 #1677FF，官方支付宝 logo
+
+---
+
+## 用户认证系统
+
+### 功能
+
+- 用户注册 / 登录
+- Token 认证（Bearer Token）
+- 角色权限控制（user / vip / admin）
+- 个人信息管理
+
+### 权限模型
+
+| 角色 | 权限 |
+|------|------|
+| user | 基础功能 |
+| vip | VIP 专属功能 |
+| admin | 管理员权限 |
+
+### 技术实现
+
+- 密码加密：`passlib` + `bcrypt`
+- Token 管理：`uuid` 生成，数据库存储
+- 会话过期：30 天自动过期
 
 ---
 
@@ -302,13 +391,12 @@ WHISPER_DEVICE=cpu
 
 ## 后续规划
 
-### v2.3 计划
-- [ ] B站视频音频自动合并
-- [ ] 断点续传支持
+### v2.4 计划
+- [ ] 真实支付接入（微信/支付宝）
+- [ ] 会员权益细化
 - [ ] 下载历史记录
 
 ### v3.0 计划
-- [ ] 用户账户系统
 - [ ] 云存储上传
 - [ ] 浏览器插件版本
 - [ ] 移动端 App

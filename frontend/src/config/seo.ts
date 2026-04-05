@@ -56,6 +56,12 @@ export const seoConfig: Record<string, SEOConfig> = {
     keywords: '万能视频下载教程,抖音下载教程,B站下载教程,YouTube下载教程,批量下载',
     ogType: 'article',
   },
+  '/pricing': {
+    title: '会员套餐 - VIP会员权益与价格 | 万能视频下载',
+    description: '万能视频下载VIP会员套餐，享受无限下载、AI视频总结、4K高清下载等高级功能。月度VIP仅需29元，年度VIP更优惠。',
+    keywords: '万能视频下载会员,VIP套餐,视频下载会员,AI视频总结会员',
+    ogType: 'article',
+  },
 };
 
 export const defaultSEO: SEOConfig = {

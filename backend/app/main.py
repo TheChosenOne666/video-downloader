@@ -12,10 +12,12 @@ from app.api.download import router as download_router
 from app.api.summarize import router as summarize_router
 from app.api.subtitle import router as subtitle_router
 from app.api.auth import router as auth_router
+from app.api.membership import router as membership_router
 from app.core.config import settings
 from app.services.task_manager import set_ws_manager
 from app.database import init_database, cleanup_expired_data
 from app.services.auth_service import auth_service
+from app.services.membership_service import membership_service
 
 # Configure logging
 logging.basicConfig(
@@ -89,6 +91,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
     
+    # Initialize membership plans
+    try:
+        await membership_service.init_default_plans()
+        logger.info("Membership plans initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize membership plans: {e}")
+    
     # Connect WebSocket manager to task manager
     set_ws_manager(ws_manager)
     
@@ -155,6 +164,7 @@ app.include_router(download_router)
 app.include_router(summarize_router)
 app.include_router(subtitle_router)
 app.include_router(auth_router)
+app.include_router(membership_router)
 
 
 @app.get("/", tags=["health"])

@@ -18,7 +18,6 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [createdAt, setCreatedAt] = useState<string>('');
 
   // Redirect if not logged in
   useEffect(() => {
@@ -26,14 +25,19 @@ export default function ProfilePage() {
       navigate('/auth');
       return;
     }
-    // Fetch full profile to get created_at
+    // Fetch full profile and update userInfo
     const token = localStorage.getItem('auth_token');
     if (token) {
-      getProfile(token).then(profile => {
-        setCreatedAt(profile.created_at || '');
+      getProfile().then((profile) => {
+        // Update userInfo with latest role from server
+        setUser(token, {
+          username: profile.username,
+          email: profile.email,
+          role: profile.role,
+        });
       }).catch(() => {});
     }
-  }, [isLoggedIn, navigate]);
+  }, [isLoggedIn, navigate, setUser]);
 
   const handleEmailChange = async () => {
     if (!email || !userInfo) return;
@@ -42,9 +46,9 @@ export default function ProfilePage() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('auth_token') || '';
-      const result = await updateProfile(token, { email });
-      setUser(token, { ...userInfo, email: result.email });
+      const authToken = localStorage.getItem('auth_token') || '';
+      await updateProfile({ email });
+      setUser(authToken, { ...userInfo, email });
       setSuccess('邮箱修改成功');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
@@ -74,12 +78,10 @@ export default function ProfilePage() {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token') || '';
-      const result = await updateProfile(token, {
-        password: currentPassword,
-        new_password: newPassword,
+      await updateProfile({
+        username: userInfo?.username,  // Keep username
+        email: userInfo?.email,        // Keep email
       });
-      setUser(token, result);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -157,7 +159,7 @@ export default function ProfilePage() {
                 </span>
               </div>
               <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                账号创建于 {createdAt ? new Date(createdAt).toLocaleDateString('zh-CN') : '未知'}
+                账号ID: {userInfo?.username}
               </p>
             </div>
           </div>

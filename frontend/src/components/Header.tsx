@@ -82,6 +82,16 @@ export default function Header() {
             帮助
           </button>
 
+          {/* Pricing */}
+          <button
+            onClick={() => navigate('/pricing')}
+            className="text-sm px-4 py-2 rounded-lg transition-all duration-200 hidden sm:flex items-center gap-2 hover:bg-primary/10 group"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            <span className="group-hover:scale-110 transition-transform">👑</span>
+            会员
+          </button>
+
           {/* User Menu or Login */}
           {isLoggedIn ? (
             <>
@@ -149,6 +159,14 @@ export default function Header() {
                     >
                       <span>👤</span>
                       个人信息
+                    </button>
+                    <button
+                      onClick={() => { navigate('/pricing'); setShowUserMenu(false); }}
+                      className="w-full px-4 py-2.5 text-left text-sm flex items-center gap-3 hover:bg-blue-50 transition-colors"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      <span>👑</span>
+                      会员套餐
                     </button>
                     <button
                       onClick={() => { navigate('/'); setShowUserMenu(false); }}

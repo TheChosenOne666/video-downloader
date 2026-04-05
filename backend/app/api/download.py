@@ -2,10 +2,11 @@
 
 import logging
 from pathlib import Path
+from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Header, Depends
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.models.schemas import (
@@ -19,10 +20,45 @@ from app.models.schemas import (
 )
 from app.services.downloader import downloader
 from app.services.task_manager import task_manager
+from app.services.membership_service import membership_service
+from app.services.auth_service import auth_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["download"])
+
+
+async def get_current_user_optional(authorization: Optional[str] = Header(None)) -> Optional[dict]:
+    """Get current user from authorization header (optional)."""
+    if not authorization:
+        return None
+    
+    if authorization.startswith("Bearer "):
+        token = authorization[7:]
+    else:
+        token = authorization
+    
+    return auth_service.get_user_by_token(token)
+
+
+async def check_download_permission(user: Optional[dict] = None) -> None:
+    """Check if user can download, raise HTTPException if not."""
+    if user:
+        can_download, message = await membership_service.can_user_download(user["id"])
+    else:
+        # Anonymous user - treat as free user with 0 downloads used
+        can_download = True
+        message = "游客模式，每日限3次下载"
+    
+    if not can_download:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": message,
+                "code": "DOWNLOAD_LIMIT_EXCEEDED",
+                "upgrade_url": "/pricing"
+            }
+        )
 
 
 @router.post(
@@ -75,14 +111,29 @@ async def get_video_info(request: VideoInfoRequest) -> VideoInfoResponse:
     status_code=status.HTTP_202_ACCEPTED,
     responses={
         400: {"model": ErrorResponse},
+        403: {"model": ErrorResponse},
     },
     summary="Start batch download",
     description="Submit a batch download task. Returns task ID for tracking progress.",
 )
-async def start_download(request: DownloadRequest) -> DownloadResponse:
+async def start_download(
+    request: DownloadRequest,
+    authorization: Optional[str] = Header(None)
+) -> DownloadResponse:
     """Start a batch download task."""
+    # Get user (optional - allows anonymous downloads)
+    user = await get_current_user_optional(authorization)
+    
+    # Check download permission
+    await check_download_permission(user)
+    
     try:
-        task_id = await task_manager.create_task(request)
+        task_id = await task_manager.create_task(request, user_id=user["id"] if user else None)
+        
+        # Increment download count for logged-in users
+        if user:
+            await membership_service.increment_download_count(user["id"])
+        
         return DownloadResponse(task_id=task_id)
     except Exception as e:
         logger.error(f"Failed to create download task: {e}")
