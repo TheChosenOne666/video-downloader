@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import Header from '../components/Header';
 import URLInput from '../components/URLInput';
@@ -14,37 +14,44 @@ import HowToUse from '../components/HowToUse';
 import AdvancedFeatures from '../components/AdvancedFeatures';
 import Testimonials from '../components/Testimonials';
 import { checkDownloadLimit } from '../services/membership';
-import { useState, useEffect } from 'react';
-
-interface DownloadLimitInfo {
-  can_download: boolean;
-  message: string;
-  daily_used: number;
-  daily_limit: number;
-  is_vip: boolean;
-}
+import { getProfile } from '../services/api';
+import { useEffect } from 'react';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize, downloadMode, isLoggedIn, userInfo } = useApp();
-  const [downloadLimit, setDownloadLimit] = useState<DownloadLimitInfo | null>(null);
-  const [isVip, setIsVip] = useState(false);
+  const location = useLocation();
+  const { urls, checkUrls, startDownloading, checkingUrls, videoInfos, loading, goToSummarize, downloadMode, isLoggedIn, userInfo, downloadLimit, setDownloadLimitCtx, setUser } = useApp();
 
-  // 检查下载限制
+  // isVip 直接从 context 的 userInfo 派生，不再维护独立 state
+  const isVip = userInfo?.role === 'vip' || userInfo?.role === 'admin';
+
+  // 调试日志
+  useEffect(() => {
+    console.log('[HomePage] Debug:', { isLoggedIn, isVip, userInfoRole: userInfo?.role, downloadLimit });
+  }, [isLoggedIn, isVip, userInfo, downloadLimit]);
+
+  // 登录时初始化次数和用户角色（从服务器获取最新状态）
   useEffect(() => {
     if (isLoggedIn) {
-      checkDownloadLimit().then(limit => {
-        setDownloadLimit(limit);
-        setIsVip(limit.is_vip);
-      }).catch(() => {
-        setDownloadLimit({ can_download: true, message: '', daily_used: 0, daily_limit: 2, is_vip: false });
-        setIsVip(false);
-      });
+      // 获取最新的用户信息（确保VIP状态正确）
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        getProfile().then(profile => {
+          // 更新用户信息（包含最新role）
+          setUser(token, {
+            username: profile.username,
+            email: profile.email,
+            role: profile.role,
+          });
+        }).catch(() => {});
+      }
+      // 获取下载次数限制
+      checkDownloadLimit().then(setDownloadLimitCtx).catch(() => {});
     } else {
-      setDownloadLimit(null);
-      setIsVip(false);
+      setDownloadLimitCtx(null);
     }
-  }, [isLoggedIn]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, location.pathname]); // 添加 location.pathname，页面切换时刷新
 
   // 检查是否解析完成（有视频信息）
   const hasVideoInfo = videoInfos.length > 0;
@@ -68,7 +75,7 @@ export default function HomePage() {
     // 检查下载限制
     if (downloadLimit && !downloadLimit.can_download) {
       // 超过限制，提示升级
-      if (confirm('今日下载次数已用完，是否升级VIP享受无限下载？')) {
+      if (confirm('今日下载次数已用完，是否开通VIP会员享受无限下载？')) {
         navigate('/pricing');
       }
       return;
@@ -80,7 +87,7 @@ export default function HomePage() {
     await startDownloading();
     
     // 下载成功后刷新限制
-    checkDownloadLimit().then(setDownloadLimit);
+    checkDownloadLimit().then(setDownloadLimitCtx);
   };
 
   // AI 总结 - 先导航再更新状态
@@ -176,39 +183,55 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* 登录后显示下载次数提示 */}
+            {/* 登录后显示下载次数提示 - 环形进度 + 文字 */}
             {isLoggedIn && downloadLimit && !isVip && (
-              <div className="mb-6 p-4 rounded-xl animate-slide-up flex items-center gap-4" 
-                   style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                <span className="text-2xl flex-shrink-0">📊</span>
-                <div className="flex-1">
-                  <p className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>
-                    今日免费下载次数
-                  </p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-surface-light)' }}>
-                      <div 
-                        className="h-full rounded-full transition-all"
-                        style={{ 
-                          width: `${Math.min(100, (downloadLimit.daily_used / downloadLimit.daily_limit) * 100)}%`,
-                          backgroundColor: downloadLimit.daily_used >= downloadLimit.daily_limit ? 'var(--color-error)' : 'var(--color-primary)'
-                        }}
-                      />
-                    </div>
-                    <span className="text-sm font-medium" style={{ color: downloadLimit.daily_used >= downloadLimit.daily_limit ? 'var(--color-error)' : 'var(--color-text-primary)' }}>
-                      {downloadLimit.daily_limit - downloadLimit.daily_used} / {downloadLimit.daily_limit}
+              <div className="mb-6 p-4 rounded-2xl animate-slide-up flex items-center gap-5"
+                   style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+                {/* 环形进度 */}
+                <div className="relative flex-shrink-0">
+                  <svg width="56" height="56" viewBox="0 0 56 56">
+                    <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="4" />
+                    <circle
+                      cx="28" cy="28" r="24"
+                      fill="none"
+                      stroke={downloadLimit.daily_used >= downloadLimit.daily_limit ? '#ef4444' : 'var(--color-primary)'}
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 24}`}
+                      strokeDashoffset={`${2 * Math.PI * 24 * (1 - Math.min(1, downloadLimit.daily_used / downloadLimit.daily_limit))}`}
+                      transform="rotate(-90 28 28)"
+                      style={{ transition: 'stroke-dashoffset 0.6s ease, stroke 0.3s ease' }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-sm font-bold" style={{ color: downloadLimit.daily_used >= downloadLimit.daily_limit ? '#ef4444' : 'var(--color-primary)' }}>
+                      {downloadLimit.daily_limit - downloadLimit.daily_used <= 0 ? '0' : downloadLimit.daily_limit - downloadLimit.daily_used}
                     </span>
                   </div>
-                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    升级VIP享受无限次下载 + AI视频总结
+                </div>
+
+                {/* 文字区域 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                      今日免费下载次数
+                    </p>
+                    <span className="px-1.5 py-0.5 rounded text-xs font-medium" style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+                      剩余 {(downloadLimit.daily_limit - downloadLimit.daily_used <= 0 ? '0' : downloadLimit.daily_limit - downloadLimit.daily_used).toString().padStart(2, '0')} 次
+                    </span>
+                  </div>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    普通用户每日免费 {downloadLimit.daily_limit} 次，开通VIP享受无限下载
                   </p>
                 </div>
+
+                {/* 开通按钮 */}
                 <button
                   onClick={() => navigate('/pricing')}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 flex-shrink-0"
-                  style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-purple) 100%)', color: '#fff', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}
                 >
-                  升级VIP
+                  开通VIP会员
                 </button>
               </div>
             )}
@@ -373,7 +396,7 @@ export default function HomePage() {
               <ul className="space-y-3">
                 <li className="flex items-center gap-3">
                   <span className="text-green-500">✓</span>
-                  <span style={{ color: 'var(--color-text-secondary)' }}>每日2次视频下载</span>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>每日3次视频下载</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="text-green-500">✓</span>
@@ -453,7 +476,7 @@ export default function HomePage() {
                   className="w-full py-3 rounded-lg font-bold text-white transition-all hover:scale-105"
                   style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-purple) 100%)' }}
                 >
-                  立即开通 ¥19.9/月
+                  立即开通 ¥29.9/月
                 </button>
               </div>
             </div>

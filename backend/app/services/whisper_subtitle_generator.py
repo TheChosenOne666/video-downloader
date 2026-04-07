@@ -11,13 +11,27 @@ from pathlib import Path
 from typing import Optional, List
 import tempfile
 
-from faster_whisper import WhisperModel
+# 延迟导入 faster_whisper，避免 DLL 冲突
+WhisperModel = None
+imageio_ffmpeg = None
+
+# 保持 pydantic 正常导入
 from pydantic import BaseModel
-import imageio_ffmpeg
+
+def _ensure_imports():
+    """延迟导入必要的模块"""
+    global WhisperModel, imageio_ffmpeg
+    if WhisperModel is None:
+        from faster_whisper import WhisperModel as _WhisperModel
+        WhisperModel = _WhisperModel
+    if imageio_ffmpeg is None:
+        import imageio_ffmpeg as _imageio_ffmpeg
+        imageio_ffmpeg = _imageio_ffmpeg
 
 
 def get_ffmpeg_path() -> str:
     """Get ffmpeg executable path, prefer imageio-ffmpeg bundled binary."""
+    _ensure_imports()
     try:
         path = imageio_ffmpeg.get_ffmpeg_exe()
         logger.info(f"Using imageio-ffmpeg bundled binary: {path}")
@@ -56,6 +70,7 @@ class WhisperSubtitleGenerator:
     
     def _load_model(self):
         """Load Faster-Whisper model, prefer local cache."""
+        _ensure_imports()  # 确保导入完成
         try:
             # 优先使用本地已下载的模型
             local_model_path = r"C:\Users\l\.cache\huggingface\hub\faster-whisper-base"

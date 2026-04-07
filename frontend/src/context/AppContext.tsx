@@ -2,11 +2,19 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect, ty
 import { useNavigate } from 'react-router-dom';
 import type { PageType, VideoInfo, DownloadTask } from '../types';
 import { getVideoInfo, startDownload, getDownloadUrl } from '../services/api';
+import { checkDownloadLimit } from '../services/membership';
 
 interface UserInfo {
   username: string;
   email: string;
   role: string;
+}
+
+interface DownloadLimitInfo {
+  can_download: boolean;
+  daily_used: number;
+  daily_limit: number;
+  is_vip: boolean;
 }
 
 interface AppState {
@@ -25,6 +33,8 @@ interface AppState {
   checkingUrls: boolean;
   isLoggedIn: boolean;
   userInfo: UserInfo | null;
+  downloadLimit: DownloadLimitInfo | null;
+  setDownloadLimitCtx: (limit: DownloadLimitInfo | null) => void;
 }
 
 interface AppContextType extends AppState {
@@ -42,6 +52,7 @@ interface AppContextType extends AppState {
   reset: () => void;
   setUser: (token: string, userInfo: UserInfo) => void;
   logout: () => void;
+  setDownloadLimitCtx: (limit: DownloadLimitInfo | null) => void;
 }
 
 const initialState: AppState = {
@@ -60,6 +71,8 @@ const initialState: AppState = {
   checkingUrls: false,
   isLoggedIn: false,
   userInfo: null,
+  downloadLimit: null,
+  setDownloadLimitCtx: () => {},
 };
 
 const routeMap: Record<PageType, string> = {
@@ -208,6 +221,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loading: false,
       }));
 
+      // 立即刷新下载次数（后端已在 start_download 中增加了计数）
+      console.log('[AppContext] Refreshing download limit after task creation...');
+      checkDownloadLimit().then(data => {
+        console.log('[AppContext] New download limit:', data);
+        setState(prev => ({ ...prev, downloadLimit: data }));
+        console.log('[AppContext] State updated with new downloadLimit');
+      }).catch(err => {
+        console.error('[AppContext] Failed to refresh download limit:', err);
+      });
+
       console.log('[AppContext] Download task created:', response.task_id);
     } catch (err) {
       console.error('[AppContext] Download error:', err);
@@ -255,6 +278,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reset,
       setUser,
       logout,
+      setDownloadLimitCtx: (limit) => setState(prev => ({ ...prev, downloadLimit: limit })),
     }}>
       {children}
     </AppContext.Provider>

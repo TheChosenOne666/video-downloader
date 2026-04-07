@@ -14,7 +14,7 @@ import logging
 import re
 from hashlib import sha256
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Awaitable, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -341,7 +341,7 @@ class DouyinDownloader:
             formats=[{"format_id": "best", "ext": "mp4", "resolution": "原画"}],
         )
     
-    async def download_video(self, url: str, output_path: Path, progress, status_callback: Optional[Callable] = None) -> DownloadItemStatus:
+    async def download_video(self, url: str, output_path: Path, progress, status_callback: Optional[Callable[["DownloadItemStatus"], Awaitable[None]]] = None) -> "DownloadItemStatus":
         """下载抖音视频"""
         status = DownloadItemStatus(url=url)
         
@@ -357,7 +357,7 @@ class DouyinDownloader:
             
             status.status = DownloadStatus.DOWNLOADING
             if status_callback:
-                status_callback(status)
+                await status_callback(status)
             
             # 获取无水印URL
             item_info = await self._fetch_item_info(video_id, resolved_url)
@@ -379,7 +379,7 @@ class DouyinDownloader:
             logger.info(f"开始下载: {play_url[:60]}...")
             
             filename = f"douyin_{video_id}.mp4"
-            file_path = output_path / filename
+            file_path = os.path.join(str(output_path), filename)
             
             async with self.client.stream('GET', play_url) as response:
                 response.raise_for_status()
@@ -402,7 +402,7 @@ class DouyinDownloader:
                             })
                             status.progress = pct
                             if status_callback:
-                                status_callback(status)
+                                await status_callback(status)
             
             status.filename = filename
             status.status = DownloadStatus.COMPLETED
@@ -411,7 +411,7 @@ class DouyinDownloader:
             logger.info(f"下载完成: {filename}")
             
             if status_callback:
-                status_callback(status)
+                await status_callback(status)
                 
         except Exception as e:
             logger.error(f"抖音下载失败: {e}")
@@ -419,7 +419,7 @@ class DouyinDownloader:
             status.error = str(e)
             
             if status_callback:
-                status_callback(status)
+                await status_callback(status)
         
         return status
     

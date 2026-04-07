@@ -44,7 +44,7 @@ export interface StatusResponse {
   total: number;
   completed: number;
   failed: number;
-  videos: VideoStatus[];
+  items: VideoStatus[];
   error?: string;
 }
 

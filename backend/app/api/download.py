@@ -44,7 +44,7 @@ async def get_current_user_optional(authorization: Optional[str] = Header(None))
 async def check_download_permission(user: Optional[dict] = None) -> None:
     """Check if user can download, raise HTTPException if not."""
     if user:
-        can_download, message = await membership_service.can_user_download(user["id"])
+        can_download, message = await membership_service.can_user_download(user.id)
     else:
         # Anonymous user - treat as free user with 0 downloads used
         can_download = True
@@ -128,11 +128,11 @@ async def start_download(
     await check_download_permission(user)
     
     try:
-        task_id = await task_manager.create_task(request, user_id=user["id"] if user else None)
+        task_id = await task_manager.create_task(request)
         
         # Increment download count for logged-in users
         if user:
-            await membership_service.increment_download_count(user["id"])
+            await membership_service.increment_download_count(user.id)
         
         return DownloadResponse(task_id=task_id)
     except Exception as e:

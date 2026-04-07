@@ -1,5 +1,70 @@
 # VideoGrab 开发日志
 
+## 2026-04-07 - v2.6 会员系统与下载优化
+
+### 新增功能
+
+#### 会员系统基础
+- 数据库 `user_daily_stats` 表记录每日下载次数
+- `membership_service.py` 完整逻辑，支持次数检查和 VIP 判断
+- `/api/membership/plans` 端点返回会员套餐
+- `/api/membership/download-limit` 端点返回用户下载限制
+- 会员价格 ¥29.9/月
+
+#### VIP 限制功能
+- 带字幕下载仅 VIP 可用（DownloadModeSelector 添加 isVip 判断）
+- AI 总结功能需 VIP（summarize.py 添加 `_check_vip_permission`）
+- 会员价格统一为 ¥29.9/月
+
+### Bug 修复
+
+#### 下载进度不更新
+**根因**: async callback 未 await，导致进度不更新
+
+**修复**:
+- `downloader.py` 和 `douyin_downloader.py` 的回调添加 `await`
+- 前端 `types/items` 字段名修复（`videos` → `items`）
+
+#### Bilibili 下载 [Errno 22] Invalid argument
+**根因**: Bilibili 的 best 格式是音频格式（30280），视频下载失败
+
+**修复**: 格式选择改为 `bestvideo+bestaudio/best`，让 ffmpeg 合并音视频
+
+#### Whisper 导入冲突
+**根因**: `av` 包 DLL 冲突 + `BaseModel` 未定义
+
+**修复**:
+- `whisper_subtitle_generator.py` 顶部添加 `from pydantic import BaseModel`
+- 对 `faster_whisper` 和 `imageio_ffmpeg` 使用延迟导入
+
+#### 下载次数不实时更新
+**根因**: `status.completed` 字段可能不准确
+
+**修复**: 改为从 `status.items` 直接计算完成数量
+
+### 前端 UI 优化
+
+- 首页 VIP 对比 Banner + 功能锁图标
+- 下载按钮显示剩余次数 + 超限升级弹窗
+- SummarizePage VIP 限制弹窗
+- ProgressPage 下载完成自动刷新次数
+
+### 代码改动
+
+**后端**:
+- `app/services/membership_service.py` - 会员服务逻辑
+- `app/services/downloader.py` - 格式修复 + ffmpeg 路径配置
+- `app/services/whisper_subtitle_generator.py` - 导入修复
+- `app/api/download.py` - VIP 限制检查
+
+**前端**:
+- `src/context/AppContext.tsx` - 新增 `downloadLimit` 状态共享
+- `src/pages/ProgressPage.tsx` - 下载完成刷新次数
+- `src/pages/HomePage.tsx` - VIP 限制 UI
+- `src/components/DownloadModeSelector.tsx` - VIP 判断
+
+---
+
 ## 2026-04-01 - v2.5 GEO 生成式引擎优化
 
 ### 新增功能

@@ -11,13 +11,22 @@ import logging
 import subprocess
 from pathlib import Path
 from typing import Literal
-import imageio_ffmpeg
+
+# 延迟导入 imageio_ffmpeg，避免 DLL 冲突
+imageio_ffmpeg = None
+
+def _ensure_imageio_ffmpeg():
+    global imageio_ffmpeg
+    if imageio_ffmpeg is None:
+        import imageio_ffmpeg as _imageio_ffmpeg
+        imageio_ffmpeg = _imageio_ffmpeg
 
 logger = logging.getLogger(__name__)
 
 
 def get_ffmpeg_path() -> str:
     """Get ffmpeg executable path, prefer imageio-ffmpeg bundled binary."""
+    _ensure_imageio_ffmpeg()
     try:
         path = imageio_ffmpeg.get_ffmpeg_exe()
         return path

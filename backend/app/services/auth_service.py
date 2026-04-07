@@ -243,6 +243,29 @@ class AuthService:
         finally:
             conn.close()
     
+    def get_user_by_token(self, token: str) -> Optional[User]:
+        """Get user by session token."""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.cursor()
+            # Join with users table to get user info
+            cursor.execute("""
+                SELECT u.* FROM users u
+                INNER JOIN sessions s ON u.id = s.user_id
+                WHERE s.token = ? AND s.expires_at > datetime('now')
+            """, (token,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return User(
+                id=row["id"], username=row["username"], email=row["email"],
+                password_hash=row["password_hash"], role=row["role"],
+                created_at=row["created_at"], last_login=row["last_login"]
+            )
+        finally:
+            conn.close()
+    
     def get_user_by_username(self, username: str) -> Optional[User]:
         """Get user by username."""
         conn = sqlite3.connect(DB_PATH)

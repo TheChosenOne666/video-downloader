@@ -63,7 +63,7 @@ class MembershipService:
             "description": "基础功能，每日限量下载",
             "price_cents": 0,
             "duration_days": None,
-            "daily_download_limit": 3,
+            "daily_download_limit": 3,  # 普通用户每日3次
             "features": ["每日3次下载", "基础视频解析", "480P下载"],
             "sort_order": 0,
         },

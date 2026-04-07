@@ -8,9 +8,10 @@
 
 import asyncio
 import logging
+import os
 import re
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Awaitable, Callable, Optional
 from urllib.parse import urlparse
 
 import yt_dlp
@@ -102,15 +103,16 @@ class VideoDownloader:
         """Get yt-dlp options with anti-hotlinking and anti-cookie headers."""
         import imageio_ffmpeg
         ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+        ffmpeg_exists = os.path.exists(ffmpeg_path)
+        
+        logger.info(f"_get_ydl_opts called: ffmpeg_path={ffmpeg_path}, ffmpeg_exists={ffmpeg_exists}")
         
         opts = {
-            "outtmpl": str(output_path / "%(id)s.%(ext)s"),  # 使用视频 ID 作为文件名，避免非法字符
-            "quiet": True, "socket_timeout": 60,
-            "no_warnings": True,
+            "outtmpl": os.path.join(str(output_path), "%(id)s.%(ext)s"),  # 使用视频 ID 作为文件名，避免非法字符
+            "quiet": False, "socket_timeout": 60,
+            "no_warnings": False,
             "progress_hooks": [progress.update],
             "noplaylist": True,  # Download only single video
-            # 指定 FFmpeg 路径（用于合并视频+音频）
-            "ffmpeg_location": ffmpeg_path,
             # Anti-hotlinking headers (防盗链绕过)
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -122,6 +124,12 @@ class VideoDownloader:
             "cookiefile": None,  # Explicitly disable cookies
         }
         
+        # 不要在这里设置 ffmpeg_location，会在下面根据 ffmpeg_works 决定
+        
+        # 设置 ffmpeg 路径
+        opts["ffmpeg_location"] = ffmpeg_path
+        logger.info(f"ffmpeg_location set to: {ffmpeg_path}")
+        
         if audio_only:
             opts["format"] = "bestaudio/best"
         elif format_id and format_id not in ('best', ''):
@@ -129,10 +137,10 @@ class VideoDownloader:
             # 'best' 是前端的选择器概念，不是 yt-dlp 的 format
             opts["format"] = format_id
         else:
-            # 使用 bestvideo+bestaudio 格式，确保视频和音频合并
-            # merge_output_format 确保输出为 mkv 格式（支持大多数视频+音频组合）
+            # 使用 bestvideo+bestaudio 格式下载，然后合并
+            # 文件名使用 %(id)s 避免中文名导致 ffmpeg 合并失败
+            logger.info("Using 'bestvideo+bestaudio/best' format for video+audio")
             opts["format"] = "bestvideo+bestaudio/best"
-            opts["merge_output_format"] = "mkv"
         
         return opts
     
@@ -220,7 +228,7 @@ class VideoDownloader:
         self,
         url: str,
         task_id: str,
-        status_callback: Optional[Callable[[DownloadItemStatus], None]] = None,
+        status_callback: Optional[Callable[[DownloadItemStatus], Awaitable[None]]] = None,
         format_id: Optional[str] = None,
         audio_only: bool = False,
         with_subtitle: bool = False,
@@ -242,7 +250,7 @@ class VideoDownloader:
             # Update status
             status.status = DownloadStatus.DOWNLOADING
             if status_callback:
-                status_callback(status)
+                await status_callback(status)
             
             # 抖音使用专用下载器（不支持字幕）
             if douyin_downloader.is_douyin_url(url):
@@ -260,12 +268,15 @@ class VideoDownloader:
             # 其他平台使用 yt-dlp
             def _download() -> str:
                 opts = self._get_ydl_opts(task_dir, progress, format_id, audio_only)
+                logger.info(f"Download opts: format={opts.get('format')}, ffmpeg_location={opts.get('ffmpeg_location')}")
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     ydl.download([url])
                 # Find the downloaded file
+                logger.info(f"Searching for downloaded file in: {task_dir}")
                 files = list(task_dir.glob(f"*{urlparse(url).netloc.split('.')[0]}*"))
                 if not files:
                     files = list(task_dir.iterdir())
+                logger.info(f"Found files: {[f.name for f in files]}")
                 return files[0].name if files else ""
             
             loop = asyncio.get_event_loop()
@@ -292,18 +303,18 @@ class VideoDownloader:
             if with_subtitle and not audio_only:
                 logger.info(f"Generating subtitles for: {filename}")
                 try:
-                    video_path = task_dir / filename
-                    if video_path.exists():
+                    video_path = os.path.join(str(task_dir), filename)
+                    if os.path.exists(video_path):
                         # Generate subtitle using Whisper
-                        srt_path = task_dir / f"{video_path.stem}_whisper.srt"
+                        srt_path = os.path.join(str(task_dir), f"{os.path.splitext(os.path.basename(video_path))[0]}_whisper.srt")
                         sub_ok = await whisper_generator.generate_subtitle(
                             video_path=str(video_path),
                             output_srt=str(srt_path),
                         )
                         
-                        if sub_ok and srt_path.exists():
+                        if sub_ok and os.path.exists(srt_path):
                             # Hardcode subtitles into video
-                            output_path = task_dir / f"{video_path.stem}_subtitled.mp4"
+                            output_path = os.path.join(str(task_dir), f"{os.path.splitext(os.path.basename(video_path))[0]}_subtitled.mp4")
                             await subtitle_hardcoder.hardcode_subtitles(
                                 video_path=str(video_path),
                                 subtitle_path=str(srt_path),
@@ -311,13 +322,13 @@ class VideoDownloader:
                             )
                             
                             # Update filename to the subtitled version
-                            status.filename = output_path.name
+                            status.filename = os.path.basename(output_path)
                             logger.info(f"Subtitled video saved as: {output_path.name}")
                             
                             # Remove original (keep only subtitled version)
                             try:
-                                video_path.unlink()
-                                srt_path.unlink()
+                                os.remove(video_path)
+                                os.remove(srt_path)
                             except Exception:
                                 pass
                         else:
@@ -337,12 +348,14 @@ class VideoDownloader:
             status.progress = 100.0
             
         except Exception as e:
+            import traceback
             logger.error(f"Download failed for {url}: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             status.status = DownloadStatus.FAILED
             status.error = str(e)
         
         if status_callback:
-            status_callback(status)
+            await status_callback(status)
         
         return status
     
@@ -350,7 +363,7 @@ class VideoDownloader:
         self,
         urls: list[str],
         task_id: str,
-        status_callback: Optional[Callable[[int, DownloadItemStatus], None]] = None,
+        status_callback: Optional[Callable[[int, DownloadItemStatus], Awaitable[None]]] = None,
         format_id: Optional[str] = None,
         audio_only: bool = False,
         with_subtitle: bool = False,
@@ -361,11 +374,15 @@ class VideoDownloader:
         results: list[DownloadItemStatus] = []
         
         async def download_with_semaphore(index: int, url: str) -> tuple[int, DownloadItemStatus]:
+            async def item_callback(s: DownloadItemStatus) -> None:
+                if status_callback:
+                    await status_callback(index, s)
+
             async with semaphore:
                 result = await self.download_video(
                     url=url,
                     task_id=task_id,
-                    status_callback=lambda s: status_callback(index, s) if status_callback else None,
+                    status_callback=item_callback,
                     format_id=format_id,
                     audio_only=audio_only,
                     with_subtitle=with_subtitle,
